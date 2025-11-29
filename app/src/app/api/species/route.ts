@@ -54,19 +54,18 @@ export async function GET(request: NextRequest) {
   const end = start + limit;
   const paginated = filtered.slice(start, end);
 
-  // Calculate stats
+  // Calculate stats - cumulative thresholds to show data deficiency
   const stats = {
     total: data.length,
     filtered: filtered.length,
     totalOccurrences: data.reduce((sum, d) => sum + d.occurrence_count, 0),
     median: data[Math.floor(data.length / 2)]?.occurrence_count || 0,
     distribution: {
-      one: data.filter((d) => d.occurrence_count === 1).length,
-      lte5: data.filter((d) => d.occurrence_count <= 5).length,
+      lte1: data.filter((d) => d.occurrence_count <= 1).length,
       lte10: data.filter((d) => d.occurrence_count <= 10).length,
-      lte50: data.filter((d) => d.occurrence_count <= 50).length,
       lte100: data.filter((d) => d.occurrence_count <= 100).length,
       lte1000: data.filter((d) => d.occurrence_count <= 1000).length,
+      lte10000: data.filter((d) => d.occurrence_count <= 10000).length,
     },
   };
 
