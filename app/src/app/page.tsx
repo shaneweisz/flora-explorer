@@ -238,7 +238,7 @@ function ExpandedRow({ speciesKey, regionMode, mounted, colSpan }: ExpandedRowPr
         <div className="bg-zinc-50 dark:bg-zinc-800/50 border-t border-zinc-200 dark:border-zinc-700">
           <div className="p-2">
             {/* Map Only */}
-            <div className="h-[400px] rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-700 relative">
+            <div className="h-[300px] md:h-[400px] rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-700 relative">
               {loadingOccurrences ? (
                 <div className="flex items-center justify-center h-full bg-zinc-100 dark:bg-zinc-800">
                   <div className="text-zinc-400">Loading occurrences...</div>
@@ -620,29 +620,23 @@ export default function Home() {
         </div>
 
         {/* Table */}
-        <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 overflow-x-auto mb-6">
-          <table className="w-full min-w-[600px]">
+        <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 overflow-hidden mb-6">
+          <table className="w-full">
             <thead className="bg-zinc-50 dark:bg-zinc-800">
               <tr>
                 {searchResults === null && (
-                  <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase w-20">
+                  <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase w-12 sm:w-20">
                     Rank
                   </th>
                 )}
-                <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase w-20">
+                <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase w-20">
                   Image
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase">
-                  Common Name
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase">
+                <th className="px-2 sm:px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase">
                   Species
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-zinc-500 uppercase w-32">
-                  Occurrences
-                </th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-zinc-500 uppercase w-16">
-                  GBIF
+                <th className="px-2 sm:px-4 py-3 text-right text-xs font-medium text-zinc-500 uppercase w-20 sm:w-28">
+                  Count
                 </th>
               </tr>
             </thead>
@@ -660,34 +654,32 @@ export default function Home() {
                       className={`hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer ${selectedSpeciesKey === species.key ? "bg-zinc-100 dark:bg-zinc-800" : ""}`}
                       onClick={() => handleRowClick(species.key, species.occurrenceCount || 0)}
                     >
-                      <td className="px-4 py-2">
+                      <td className="hidden md:table-cell px-4 py-2">
                         {species.imageUrl ? (
                           <img src={species.imageUrl} alt="" className="w-16 h-16 object-cover rounded" />
                         ) : (
                           <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 rounded" />
                         )}
                       </td>
-                      <td className="px-4 py-2 text-sm text-zinc-600 dark:text-zinc-400">
-                        {species.vernacularName || "—"}
+                      <td className="px-2 sm:px-4 py-2">
+                        <div className="text-sm text-zinc-900 dark:text-zinc-100">{species.vernacularName || "—"}</div>
+                        <div className="text-xs text-zinc-500 italic">
+                          {species.canonicalName}
+                          <a
+                            href={`https://www.gbif.org/species/${species.key}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="ml-1 text-green-600 hover:text-green-700"
+                          >
+                            <svg className="w-3 h-3 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </a>
+                        </div>
                       </td>
-                      <td className="px-4 py-2 text-sm italic text-zinc-900 dark:text-zinc-100">
-                        {species.canonicalName}
-                      </td>
-                      <td className="px-4 py-2 text-sm text-right font-medium text-zinc-900 dark:text-zinc-100">
+                      <td className="px-2 sm:px-4 py-2 text-sm text-right font-medium text-zinc-900 dark:text-zinc-100">
                         {species.occurrenceCount ? formatNumber(species.occurrenceCount) : "—"}
-                      </td>
-                      <td className="px-4 py-2 text-center">
-                        <a
-                          href={`https://www.gbif.org/species/${species.key}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-green-600 hover:text-green-700"
-                        >
-                          <svg className="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
-                        </a>
                       </td>
                     </tr>
                     {selectedSpeciesKey === species.key && (
@@ -719,8 +711,8 @@ export default function Home() {
                         className={`hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer ${selectedSpeciesKey === record.species_key ? "bg-zinc-100 dark:bg-zinc-800" : ""}`}
                         onClick={() => handleRowClick(record.species_key, record.occurrence_count)}
                       >
-                        <td className="px-4 py-2 text-sm text-zinc-500">#{formatNumber(rank)}</td>
-                        <td className="px-4 py-2">
+                        <td className="px-2 sm:px-4 py-2 text-sm text-zinc-500">#{formatNumber(rank)}</td>
+                        <td className="hidden md:table-cell px-4 py-2">
                           {isLoading ? (
                             <div className="w-16 h-16 bg-zinc-200 dark:bg-zinc-700 rounded animate-pulse" />
                           ) : cached?.imageUrl ? (
@@ -729,23 +721,25 @@ export default function Home() {
                             <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 rounded" />
                           )}
                         </td>
-                        <td className="px-4 py-2 text-sm text-zinc-600 dark:text-zinc-400">{commonName}</td>
-                        <td className="px-4 py-2 text-sm italic text-zinc-900 dark:text-zinc-100">{displayName}</td>
-                        <td className="px-4 py-2 text-sm text-right font-medium text-zinc-900 dark:text-zinc-100">
-                          {formatNumber(record.occurrence_count)}
+                        <td className="px-2 sm:px-4 py-2">
+                          <div className="text-sm text-zinc-900 dark:text-zinc-100">{commonName}</div>
+                          <div className="text-xs text-zinc-500 italic">
+                            {displayName}
+                            <a
+                              href={`https://www.gbif.org/species/${record.species_key}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="ml-1 text-green-600 hover:text-green-700"
+                            >
+                              <svg className="w-3 h-3 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                              </svg>
+                            </a>
+                          </div>
                         </td>
-                        <td className="px-4 py-2 text-center">
-                          <a
-                            href={`https://www.gbif.org/species/${record.species_key}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-green-600 hover:text-green-700"
-                          >
-                            <svg className="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                            </svg>
-                          </a>
+                        <td className="px-2 sm:px-4 py-2 text-sm text-right font-medium text-zinc-900 dark:text-zinc-100">
+                          {formatNumber(record.occurrence_count)}
                         </td>
                       </tr>
                       {selectedSpeciesKey === record.species_key && (
