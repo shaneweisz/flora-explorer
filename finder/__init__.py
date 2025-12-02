@@ -6,7 +6,7 @@ Find candidate locations for plant species using geospatial embeddings.
 
 from .gbif import get_species_key, get_species_info, fetch_occurrences
 from .embeddings import EmbeddingMosaic
-from .methods import SimilarityMethod, ClassifierMethod
+from .methods import SimilarityMethod
 from .pipeline import find_candidates
 
 __all__ = [
@@ -15,6 +15,5 @@ __all__ = [
     "fetch_occurrences",
     "EmbeddingMosaic",
     "SimilarityMethod",
-    "ClassifierMethod",
     "find_candidates",
 ]

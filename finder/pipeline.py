@@ -13,7 +13,7 @@ import rasterio
 
 from .gbif import get_species_info, fetch_occurrences
 from .embeddings import EmbeddingMosaic
-from .methods import PredictionMethod, SimilarityMethod, ClassifierMethod, get_method
+from .methods import SimilarityMethod
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +33,8 @@ class PredictionResult:
 
     species_name: str
     taxon_key: int
-    method: str
     n_occurrences: int
-    scores: np.ndarray  # (H, W) probability/similarity map
+    scores: np.ndarray  # (H, W) similarity map
     transform: rasterio.transform.Affine
     bbox: tuple[float, float, float, float]
 
@@ -44,16 +43,7 @@ class PredictionResult:
         threshold: float = 0.5,
         max_points: int = 5000
     ) -> dict:
-        """
-        Convert high-scoring pixels to GeoJSON.
-
-        Args:
-            threshold: Minimum score to include
-            max_points: Maximum number of points (subsampled if exceeded)
-
-        Returns:
-            GeoJSON FeatureCollection
-        """
+        """Convert high-scoring pixels to GeoJSON."""
         rows, cols = np.where(self.scores >= threshold)
 
         # Subsample if too many points
@@ -79,7 +69,6 @@ class PredictionResult:
             "metadata": {
                 "species": self.species_name,
                 "taxon_key": self.taxon_key,
-                "method": self.method,
                 "n_occurrences": self.n_occurrences,
                 "n_candidates": len(features),
                 "threshold": threshold,
@@ -88,16 +77,7 @@ class PredictionResult:
         }
 
     def save(self, output_dir: Path, threshold: float = 0.5) -> dict[str, Path]:
-        """
-        Save results to files.
-
-        Args:
-            output_dir: Directory to save results
-            threshold: Minimum score for candidates GeoJSON
-
-        Returns:
-            Dictionary mapping output type to file path
-        """
+        """Save results to files."""
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -134,23 +114,19 @@ def find_candidates(
     species_name: str,
     bbox: tuple[float, float, float, float],
     cache_dir: Path,
-    method: str = "auto",
     output_dir: Optional[Path] = None,
-    **method_kwargs,
 ) -> PredictionResult:
     """
-    Find candidate locations for a species.
+    Find candidate locations for a species using habitat similarity.
 
     Args:
         species_name: Scientific name of the species
         bbox: Bounding box as (min_lon, min_lat, max_lon, max_lat)
         cache_dir: Directory containing Tessera embeddings
-        method: Prediction method ("similarity", "classifier", or "auto")
         output_dir: If provided, save results to this directory
-        **method_kwargs: Additional arguments for the prediction method
 
     Returns:
-        PredictionResult with scores and metadata
+        PredictionResult with similarity scores and metadata
     """
     logger.info("=" * 60)
     logger.info(f"Finding candidates for: {species_name}")
@@ -184,48 +160,24 @@ def find_candidates(
     if len(positive_embeddings) == 0:
         raise ValueError("No valid embeddings found at occurrence locations")
 
-    # 4. Choose and fit prediction method
-    logger.info("\n[4/4] Predicting candidates...")
+    # 4. Compute similarity
+    logger.info("\n[4/4] Computing habitat similarity...")
+    predictor = SimilarityMethod()
+    predictor.fit(positive_embeddings)
 
-    # Auto-select method based on sample size
-    if method == "auto":
-        if len(positive_embeddings) < 5:
-            method = "similarity"
-            logger.info(f"  Auto-selected: similarity (only {len(positive_embeddings)} samples)")
-        else:
-            method = "classifier"
-            logger.info(f"  Auto-selected: classifier ({len(positive_embeddings)} samples)")
-
-    # Initialize method
-    predictor: PredictionMethod = get_method(method, **method_kwargs)
-    logger.info(f"  Method: {predictor.description}")
-
-    # Fit method
-    if isinstance(predictor, ClassifierMethod):
-        # Classifier needs negative samples
-        predictor.set_spatial_context(valid_coords, bbox)
-        negative_coords = predictor.get_negative_coords()
-        negative_embeddings, _ = mosaic.sample_at_coords(negative_coords)
-        logger.info(f"  Negative samples: {len(negative_embeddings)}")
-        predictor.fit(positive_embeddings, negative_embeddings)
-    else:
-        predictor.fit(positive_embeddings)
-
-    # Predict on all pixels
     all_embeddings = mosaic.get_all_embeddings()
     scores = predictor.predict(all_embeddings)
     scores_map = scores.reshape(h, w)
 
     # Log statistics
     logger.info(f"\n  Score range: {scores.min():.3f} - {scores.max():.3f}")
-    high_score = (scores > 0.7).sum()
-    logger.info(f"  High score pixels (>0.7): {high_score:,} ({100*high_score/len(scores):.1f}%)")
+    high_score = (scores > 0.6).sum()
+    logger.info(f"  High similarity pixels (>0.6): {high_score:,} ({100*high_score/len(scores):.1f}%)")
 
     # Create result
     result = PredictionResult(
         species_name=species_info["canonical_name"],
         taxon_key=taxon_key,
-        method=method,
         n_occurrences=len(valid_coords),
         scores=scores_map,
         transform=mosaic.transform,
@@ -234,9 +186,7 @@ def find_candidates(
 
     # Save if output directory specified
     if output_dir:
-        # Use lower threshold for similarity method (scores are more compressed)
-        threshold = 0.4 if method == "similarity" else 0.5
-        result.save(output_dir, threshold=threshold)
+        result.save(output_dir, threshold=0.5)
 
         # Also save occurrences
         occ_geojson = {
