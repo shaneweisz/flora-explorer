@@ -25,7 +25,7 @@ OUTPUT_DIR = PROJECT_ROOT / "output" / "experiments"
 # Experiment parameters
 SPECIES_LIST = ["Quercus robur", "Fraxinus excelsior"]  # Oak, Ash
 REGION = "cambridge"
-N_POSITIVE_VALUES = [2, 5, 10, 20, 50, 100]  # Positive training samples (matched by negatives)
+N_POSITIVE_VALUES = [1, 2, 5, 10, 20, 50, 100]  # Positive training samples (matched by negatives)
 SEED = 42
 
 
