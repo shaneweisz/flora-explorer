@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
+import SpeciesInfoBar from "../../components/SpeciesInfoBar";
 
 const MapContainer = dynamic(
   () => import("react-leaflet").then((mod) => mod.MapContainer),
@@ -57,11 +58,6 @@ interface SpeciesData {
   experiments: Experiment[];
 }
 
-interface SpeciesDetails {
-  vernacularName?: string;
-  media?: { identifier: string }[];
-}
-
 const SPECIES_FILES = [
   "quercus_robur",
   "fraxinus_excelsior",
@@ -74,7 +70,6 @@ const SPECIES_FILES = [
 
 export default function ExperimentPage() {
   const [speciesData, setSpeciesData] = useState<Record<string, SpeciesData>>({});
-  const [speciesDetailsCache, setSpeciesDetailsCache] = useState<Record<number, SpeciesDetails>>({});
   const [selectedSpecies, setSelectedSpecies] = useState<string>("quercus_robur");
   const [selectedNPositive, setSelectedNPositive] = useState<number>(10);
   const [selectedTrialIdx, setSelectedTrialIdx] = useState<number>(0);
@@ -125,26 +120,6 @@ export default function ExperimentPage() {
     setSelectedTrialIdx(0);
   }, [selectedNPositive]);
 
-  // Fetch species details from GBIF when species changes
-  useEffect(() => {
-    if (!currentData) return;
-    const speciesKey = currentData.species_key;
-    if (speciesDetailsCache[speciesKey]) return;
-
-    fetch(`https://api.gbif.org/v1/species/${speciesKey}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setSpeciesDetailsCache((prev) => ({
-          ...prev,
-          [speciesKey]: {
-            vernacularName: data.vernacularName,
-            media: data.media,
-          },
-        }));
-      })
-      .catch(console.error);
-  }, [currentData, speciesDetailsCache]);
-
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center">
@@ -178,44 +153,17 @@ export default function ExperimentPage() {
   const precision = tp / (tp + fp) || 0;
   const recall = tp / (tp + fn) || 0;
 
-  const speciesDetails = speciesDetailsCache[currentData.species_key];
-
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 p-4 md:p-8">
       <main className="max-w-6xl mx-auto">
         {/* Species Info Bar */}
-        <div className="bg-white dark:bg-zinc-900 rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 mb-6">
-          <div className="flex items-center gap-4">
-            {/* Species image placeholder */}
-            <div className="w-16 h-16 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden flex-shrink-0">
-              <svg className="w-8 h-8 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-baseline gap-2 flex-wrap">
-                <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 italic">
-                  {currentData.species}
-                </h1>
-                {speciesDetails?.vernacularName && (
-                  <span className="text-lg text-zinc-500">
-                    ({speciesDetails.vernacularName})
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-4 mt-1 text-sm text-zinc-500">
-                <span>{currentData.n_occurrences} occurrences in {currentData.region}</span>
-                <a
-                  href={`https://www.gbif.org/species/${currentData.species_key}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-green-600 hover:text-green-700 hover:underline"
-                >
-                  View on GBIF →
-                </a>
-              </div>
-            </div>
-          </div>
+        <div className="mb-6">
+          <SpeciesInfoBar
+            speciesKey={currentData.species_key}
+            speciesName={currentData.species}
+            occurrenceCount={currentData.n_occurrences}
+            region={currentData.region}
+          />
         </div>
 
         <div className="mb-6">
