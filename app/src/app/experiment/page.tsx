@@ -19,6 +19,14 @@ const Popup = dynamic(
   () => import("react-leaflet").then((mod) => mod.Popup),
   { ssr: false }
 );
+const Rectangle = dynamic(
+  () => import("react-leaflet").then((mod) => mod.Rectangle),
+  { ssr: false }
+);
+const Marker = dynamic(
+  () => import("react-leaflet").then((mod) => mod.Marker),
+  { ssr: false }
+);
 
 interface Point {
   lon: number;
@@ -61,6 +69,21 @@ interface SpeciesNames {
   [key: string]: string | undefined; // species_key -> vernacular name
 }
 
+interface LocalPrediction {
+  lon: number;
+  lat: number;
+  score: number;
+}
+
+interface LocalPredictionResult {
+  predictions: LocalPrediction[];
+  species: string;
+  species_key: number;
+  center: { lon: number; lat: number };
+  grid_size_m: number;
+  n_pixels: number;
+}
+
 const SPECIES_FILES = [
   "quercus_robur",
   "fraxinus_excelsior",
@@ -80,6 +103,12 @@ export default function ExperimentPage() {
   const [threshold, setThreshold] = useState<number>(0.5);
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Location-based prediction state
+  const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
+  const [localPredictions, setLocalPredictions] = useState<LocalPredictionResult | null>(null);
+  const [localLoading, setLocalLoading] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -146,6 +175,54 @@ export default function ExperimentPage() {
   useEffect(() => {
     setSelectedTrialIdx(0);
   }, [selectedNPositive]);
+
+  // Clear local predictions when species changes
+  useEffect(() => {
+    setLocalPredictions(null);
+    setLocalError(null);
+  }, [selectedSpecies]);
+
+  // Get user location and fetch predictions
+  const handleFindMe = async () => {
+    if (!currentData) return;
+
+    setLocalLoading(true);
+    setLocalError(null);
+
+    try {
+      // Get user's location
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+        });
+      });
+
+      const { latitude: lat, longitude: lon } = position.coords;
+      setUserLocation({ lat, lon });
+
+      // Fetch predictions for this location
+      const res = await fetch(
+        `/api/predict-local?lat=${lat}&lon=${lon}&speciesKey=${currentData.species_key}&gridSize=100`
+      );
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to get predictions");
+      }
+
+      const result = await res.json();
+      setLocalPredictions(result);
+    } catch (err) {
+      if (err instanceof GeolocationPositionError) {
+        setLocalError("Could not get your location. Please enable location access.");
+      } else {
+        setLocalError(err instanceof Error ? err.message : "Failed to get predictions");
+      }
+    } finally {
+      setLocalLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -424,6 +501,90 @@ export default function ExperimentPage() {
           </div>
         </div>
 
+        {/* Find Me - Local Predictions */}
+        <div className="bg-white dark:bg-zinc-900 rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Predict Near Me
+              </h3>
+              <p className="text-xs text-zinc-500 mt-1">
+                Get predictions for a 100m × 100m grid at your current location
+              </p>
+            </div>
+            <button
+              onClick={handleFindMe}
+              disabled={localLoading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {localLoading ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <span>Finding...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span>Find Me</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {localError && (
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg text-red-600 dark:text-red-400 text-sm mb-4">
+              {localError}
+            </div>
+          )}
+
+          {localPredictions && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center p-3 bg-zinc-50 dark:bg-zinc-800 rounded-lg">
+                  <div className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+                    {localPredictions.n_pixels}
+                  </div>
+                  <div className="text-xs text-zinc-500">Pixels analyzed</div>
+                </div>
+                <div className="text-center p-3 bg-zinc-50 dark:bg-zinc-800 rounded-lg">
+                  <div className="text-lg font-bold text-green-600">
+                    {localPredictions.predictions.filter(p => p.score >= threshold).length}
+                  </div>
+                  <div className="text-xs text-zinc-500">High probability</div>
+                </div>
+                <div className="text-center p-3 bg-zinc-50 dark:bg-zinc-800 rounded-lg">
+                  <div className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+                    {localPredictions.predictions.length > 0
+                      ? Math.max(...localPredictions.predictions.map(p => p.score)).toFixed(2)
+                      : "N/A"}
+                  </div>
+                  <div className="text-xs text-zinc-500">Max score</div>
+                </div>
+                <div className="text-center p-3 bg-zinc-50 dark:bg-zinc-800 rounded-lg">
+                  <div className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+                    {localPredictions.predictions.length > 0
+                      ? (localPredictions.predictions.reduce((a, b) => a + b.score, 0) / localPredictions.predictions.length).toFixed(2)
+                      : "N/A"}
+                  </div>
+                  <div className="text-xs text-zinc-500">Mean score</div>
+                </div>
+              </div>
+
+              {userLocation && (
+                <div className="text-xs text-zinc-500">
+                  Location: {userLocation.lat.toFixed(5)}, {userLocation.lon.toFixed(5)}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Map */}
         <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
           <div className="p-4 border-b border-zinc-200 dark:border-zinc-700">
@@ -607,6 +768,56 @@ export default function ExperimentPage() {
                     </Popup>
                   </CircleMarker>
                 ))}
+
+                {/* Local predictions - cyan/magenta based on score */}
+                {localPredictions?.predictions.map((pt, idx) => (
+                  <CircleMarker
+                    key={`local-${idx}`}
+                    center={[pt.lat, pt.lon]}
+                    radius={8}
+                    pathOptions={{
+                      color: pt.score >= threshold ? "#0891b2" : "#64748b",
+                      fillColor: pt.score >= threshold ? "#06b6d4" : "#94a3b8",
+                      fillOpacity: 0.9,
+                      weight: 2,
+                    }}
+                  >
+                    <Popup>
+                      <div className="text-sm">
+                        <div className={`font-medium ${pt.score >= threshold ? "text-cyan-600" : "text-zinc-600"}`}>
+                          Local Prediction
+                        </div>
+                        <div>Score: {pt.score.toFixed(3)}</div>
+                        <div className="text-xs text-zinc-500">
+                          {pt.score >= threshold ? "High probability" : "Low probability"}
+                        </div>
+                      </div>
+                    </Popup>
+                  </CircleMarker>
+                ))}
+
+                {/* User location marker */}
+                {userLocation && (
+                  <CircleMarker
+                    center={[userLocation.lat, userLocation.lon]}
+                    radius={10}
+                    pathOptions={{
+                      color: "#dc2626",
+                      fillColor: "#ef4444",
+                      fillOpacity: 1,
+                      weight: 3,
+                    }}
+                  >
+                    <Popup>
+                      <div className="text-sm">
+                        <div className="font-medium text-red-600">Your Location</div>
+                        <div className="text-xs text-zinc-500">
+                          {userLocation.lat.toFixed(5)}, {userLocation.lon.toFixed(5)}
+                        </div>
+                      </div>
+                    </Popup>
+                  </CircleMarker>
+                )}
               </MapContainer>
             )}
           </div>

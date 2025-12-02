@@ -2,7 +2,9 @@
 Prediction method for finding candidate locations using a classifier.
 """
 
-from typing import Optional
+import pickle
+from pathlib import Path
+from typing import Optional, Union
 
 import numpy as np
 from sklearn.linear_model import LogisticRegression
@@ -73,3 +75,27 @@ class ClassifierMethod:
             scores[i:end] = probs[:, 1]
 
         return scores
+
+    def save(self, path: Union[str, Path]) -> None:
+        """Save the trained model and scaler to a file."""
+        if self._model is None or self._scaler is None:
+            raise ValueError("Must call fit() before saving")
+
+        path = Path(path)
+        with open(path, "wb") as f:
+            pickle.dump({
+                "model": self._model,
+                "scaler": self._scaler,
+            }, f)
+
+    @classmethod
+    def load(cls, path: Union[str, Path]) -> "ClassifierMethod":
+        """Load a trained model from a file."""
+        path = Path(path)
+        with open(path, "rb") as f:
+            data = pickle.load(f)
+
+        instance = cls()
+        instance._model = data["model"]
+        instance._scaler = data["scaler"]
+        return instance
