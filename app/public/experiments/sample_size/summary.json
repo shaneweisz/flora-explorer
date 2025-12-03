@@ -1,0 +1,170 @@
+{
+  "n_train_values": [
+    2,
+    5,
+    10,
+    20,
+    50
+  ],
+  "n_subsamples": 5,
+  "negative_ratio": 5,
+  "species": [
+    {
+      "species": "Quercus robur",
+      "n_total": 44,
+      "sample_sizes": [
+        {
+          "n_train": 2,
+          "n_folds": 9,
+          "auc_mean": 0.4806468047478149,
+          "auc_std": 0.18502969351180698,
+          "auc_vs_random": -0.01267158906687529
+        },
+        {
+          "n_train": 5,
+          "n_folds": 9,
+          "auc_mean": 0.5383997324536045,
+          "auc_std": 0.06573698169686383,
+          "auc_vs_random": 0.045081338638914364
+        },
+        {
+          "n_train": 10,
+          "n_folds": 9,
+          "auc_mean": 0.5334461336144838,
+          "auc_std": 0.13855132860277466,
+          "auc_vs_random": 0.04012773979979363
+        },
+        {
+          "n_train": 20,
+          "n_folds": 9,
+          "auc_mean": 0.6446181001938577,
+          "auc_std": 0.12068805378611608,
+          "auc_vs_random": 0.1512997063791676
+        }
+      ]
+    },
+    {
+      "species": "Fraxinus excelsior",
+      "n_total": 86,
+      "sample_sizes": [
+        {
+          "n_train": 2,
+          "n_folds": 9,
+          "auc_mean": 0.4850737934226945,
+          "auc_std": 0.11725632973796411,
+          "auc_vs_random": -0.011550544260548893
+        },
+        {
+          "n_train": 5,
+          "n_folds": 9,
+          "auc_mean": 0.5254848532115015,
+          "auc_std": 0.06503183676105091,
+          "auc_vs_random": 0.02886051552825816
+        },
+        {
+          "n_train": 10,
+          "n_folds": 9,
+          "auc_mean": 0.5747916972289683,
+          "auc_std": 0.08528930141235759,
+          "auc_vs_random": 0.07816735954572489
+        },
+        {
+          "n_train": 20,
+          "n_folds": 9,
+          "auc_mean": 0.5994170952843114,
+          "auc_std": 0.10429353775820897,
+          "auc_vs_random": 0.10279275760106801
+        },
+        {
+          "n_train": 50,
+          "n_folds": 9,
+          "auc_mean": 0.5819116434542259,
+          "auc_std": 0.09400098707796824,
+          "auc_vs_random": 0.08528730577098245
+        }
+      ]
+    },
+    {
+      "species": "Urtica dioica",
+      "n_total": 109,
+      "sample_sizes": [
+        {
+          "n_train": 2,
+          "n_folds": 9,
+          "auc_mean": 0.5477703074342685,
+          "auc_std": 0.08216071701987486,
+          "auc_vs_random": 0.056249856575052735
+        },
+        {
+          "n_train": 5,
+          "n_folds": 9,
+          "auc_mean": 0.5093664483814647,
+          "auc_std": 0.035059518633721275,
+          "auc_vs_random": 0.017845997522248882
+        },
+        {
+          "n_train": 10,
+          "n_folds": 9,
+          "auc_mean": 0.5478360670714566,
+          "auc_std": 0.07193669234587295,
+          "auc_vs_random": 0.05631561621224095
+        },
+        {
+          "n_train": 20,
+          "n_folds": 9,
+          "auc_mean": 0.5537217241732935,
+          "auc_std": 0.07243384238724154,
+          "auc_vs_random": 0.06220127331407767
+        },
+        {
+          "n_train": 50,
+          "n_folds": 9,
+          "auc_mean": 0.602021674433471,
+          "auc_std": 0.06832518811243765,
+          "auc_vs_random": 0.11050122357425522
+        }
+      ]
+    },
+    {
+      "species": "Crataegus monogyna",
+      "n_total": 94,
+      "sample_sizes": [
+        {
+          "n_train": 2,
+          "n_folds": 9,
+          "auc_mean": 0.5138504854577863,
+          "auc_std": 0.055484214198631095,
+          "auc_vs_random": 0.02132951727301356
+        },
+        {
+          "n_train": 5,
+          "n_folds": 9,
+          "auc_mean": 0.5080830116975472,
+          "auc_std": 0.08024426269631371,
+          "auc_vs_random": 0.015562043512774355
+        },
+        {
+          "n_train": 10,
+          "n_folds": 9,
+          "auc_mean": 0.5289146763928043,
+          "auc_std": 0.08862593943838006,
+          "auc_vs_random": 0.036393708208031436
+        },
+        {
+          "n_train": 20,
+          "n_folds": 9,
+          "auc_mean": 0.5785280725910511,
+          "auc_std": 0.07144502347580681,
+          "auc_vs_random": 0.0860071044062782
+        },
+        {
+          "n_train": 50,
+          "n_folds": 9,
+          "auc_mean": 0.6179771969999652,
+          "auc_std": 0.09618026672121638,
+          "auc_vs_random": 0.12545622881519242
+        }
+      ]
+    }
+  ]
+}

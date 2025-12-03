@@ -1,0 +1,41 @@
+{
+  "species": "Fraxinus excelsior",
+  "n_total": 86,
+  "sample_sizes": [
+    {
+      "n_train": 2,
+      "n_folds": 9,
+      "auc_mean": 0.4850737934226945,
+      "auc_std": 0.11725632973796411,
+      "auc_vs_random": -0.011550544260548893
+    },
+    {
+      "n_train": 5,
+      "n_folds": 9,
+      "auc_mean": 0.5254848532115015,
+      "auc_std": 0.06503183676105091,
+      "auc_vs_random": 0.02886051552825816
+    },
+    {
+      "n_train": 10,
+      "n_folds": 9,
+      "auc_mean": 0.5747916972289683,
+      "auc_std": 0.08528930141235759,
+      "auc_vs_random": 0.07816735954572489
+    },
+    {
+      "n_train": 20,
+      "n_folds": 9,
+      "auc_mean": 0.5994170952843114,
+      "auc_std": 0.10429353775820897,
+      "auc_vs_random": 0.10279275760106801
+    },
+    {
+      "n_train": 50,
+      "n_folds": 9,
+      "auc_mean": 0.5819116434542259,
+      "auc_std": 0.09400098707796824,
+      "auc_vs_random": 0.08528730577098245
+    }
+  ]
+}

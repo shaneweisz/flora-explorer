@@ -1,0 +1,34 @@
+{
+  "species": "Quercus robur",
+  "n_total": 44,
+  "sample_sizes": [
+    {
+      "n_train": 2,
+      "n_folds": 9,
+      "auc_mean": 0.4806468047478149,
+      "auc_std": 0.18502969351180698,
+      "auc_vs_random": -0.01267158906687529
+    },
+    {
+      "n_train": 5,
+      "n_folds": 9,
+      "auc_mean": 0.5383997324536045,
+      "auc_std": 0.06573698169686383,
+      "auc_vs_random": 0.045081338638914364
+    },
+    {
+      "n_train": 10,
+      "n_folds": 9,
+      "auc_mean": 0.5334461336144838,
+      "auc_std": 0.13855132860277466,
+      "auc_vs_random": 0.04012773979979363
+    },
+    {
+      "n_train": 20,
+      "n_folds": 9,
+      "auc_mean": 0.6446181001938577,
+      "auc_std": 0.12068805378611608,
+      "auc_vs_random": 0.1512997063791676
+    }
+  ]
+}

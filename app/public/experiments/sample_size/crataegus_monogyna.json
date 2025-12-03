@@ -1,0 +1,41 @@
+{
+  "species": "Crataegus monogyna",
+  "n_total": 94,
+  "sample_sizes": [
+    {
+      "n_train": 2,
+      "n_folds": 9,
+      "auc_mean": 0.5138504854577863,
+      "auc_std": 0.055484214198631095,
+      "auc_vs_random": 0.02132951727301356
+    },
+    {
+      "n_train": 5,
+      "n_folds": 9,
+      "auc_mean": 0.5080830116975472,
+      "auc_std": 0.08024426269631371,
+      "auc_vs_random": 0.015562043512774355
+    },
+    {
+      "n_train": 10,
+      "n_folds": 9,
+      "auc_mean": 0.5289146763928043,
+      "auc_std": 0.08862593943838006,
+      "auc_vs_random": 0.036393708208031436
+    },
+    {
+      "n_train": 20,
+      "n_folds": 9,
+      "auc_mean": 0.5785280725910511,
+      "auc_std": 0.07144502347580681,
+      "auc_vs_random": 0.0860071044062782
+    },
+    {
+      "n_train": 50,
+      "n_folds": 9,
+      "auc_mean": 0.6179771969999652,
+      "auc_std": 0.09618026672121638,
+      "auc_vs_random": 0.12545622881519242
+    }
+  ]
+}

@@ -1,266 +1,76 @@
 {
   "region": "cambridge",
   "model_type": "logistic",
+  "validation_method": "spatial_block_cv",
+  "n_blocks": 9,
+  "thinning_resolution_deg": 0.005,
+  "negative_ratio": 5,
   "base_seed": 42,
-  "n_trials": 5,
-  "n_positive_values": [
-    1,
-    2,
-    5,
-    10,
-    20,
-    50,
-    100
-  ],
   "species": [
     {
       "species": "Quercus robur",
-      "n_occurrences": 123,
-      "results": [
-        {
-          "n_positive": 1,
-          "auc_mean": 0.5318865896264444,
-          "auc_std": 0.0691171810450371,
-          "f1_mean": 0.4458547226240581,
-          "f1_std": 0.21572601078919362,
-          "precision_mean": 0.5182643219589437,
-          "precision_std": 0.05896885336915545,
-          "recall_mean": 0.480327868852459,
-          "recall_std": 0.3133078110525514
-        },
-        {
-          "n_positive": 2,
-          "auc_mean": 0.5714910183730619,
-          "auc_std": 0.05557993025213529,
-          "f1_mean": 0.48684935382991607,
-          "f1_std": 0.15576463028696327,
-          "precision_mean": 0.5220915195279878,
-          "precision_std": 0.07312886796128351,
-          "recall_mean": 0.49752066115702487,
-          "recall_std": 0.20923295733483188
-        },
-        {
-          "n_positive": 5,
-          "auc_mean": 0.633783395575984,
-          "auc_std": 0.0491577469406608,
-          "f1_mean": 0.553576242225857,
-          "f1_std": 0.03261107174161262,
-          "precision_mean": 0.6334142280154615,
-          "precision_std": 0.049912504920982904,
-          "recall_mean": 0.4966101694915254,
-          "recall_std": 0.05073433744778225
-        },
-        {
-          "n_positive": 10,
-          "auc_mean": 0.6588299788550396,
-          "auc_std": 0.05786517317529467,
-          "f1_mean": 0.5879225397449027,
-          "f1_std": 0.03956303605128844,
-          "precision_mean": 0.6010545106234761,
-          "precision_std": 0.050701194956451805,
-          "recall_mean": 0.5805309734513274,
-          "recall_std": 0.06445005825144468
-        },
-        {
-          "n_positive": 20,
-          "auc_mean": 0.7095107927231596,
-          "auc_std": 0.032035583260398445,
-          "f1_mean": 0.6556761486723517,
-          "f1_std": 0.03272109028975037,
-          "precision_mean": 0.6615290255106768,
-          "precision_std": 0.022888207350187515,
-          "recall_mean": 0.6582524271844661,
-          "recall_std": 0.08757260026236646
-        },
-        {
-          "n_positive": 50,
-          "auc_mean": 0.8160630512291236,
-          "auc_std": 0.03658913238511275,
-          "f1_mean": 0.7651841371648956,
-          "f1_std": 0.03846853319609854,
-          "precision_mean": 0.7105213497021899,
-          "precision_std": 0.05260612129946934,
-          "recall_mean": 0.8301369863013699,
-          "recall_std": 0.020502232256295567
-        },
-        {
-          "n_positive": 100,
-          "auc_mean": 0.8948960302457467,
-          "auc_std": 0.07638173942789804,
-          "f1_mean": 0.8186819421713037,
-          "f1_std": 0.09433312095700959,
-          "precision_mean": 0.7948779995966928,
-          "precision_std": 0.06404724182073929,
-          "recall_mean": 0.8521739130434783,
-          "recall_std": 0.14182179504608772
-        }
-      ]
+      "n_occurrences_raw": 123,
+      "n_occurrences_thinned": 44,
+      "n_valid_folds": 9,
+      "auc_mean": 0.6626493895180763,
+      "auc_std": 0.18857254074792915,
+      "auc_vs_random": 0.16933099570338625,
+      "f1_mean": 0.36985541691424045,
+      "precision_mean": 0.6111111111111112,
+      "recall_mean": 0.2994388327721661,
+      "optimal_threshold": 0.19444444444444445
     },
     {
       "species": "Fraxinus excelsior",
-      "n_occurrences": 428,
-      "results": [
-        {
-          "n_positive": 1,
-          "auc_mean": 0.462223782283674,
-          "auc_std": 0.1385596696044456,
-          "f1_mean": 0.5044466161071777,
-          "f1_std": 0.12082077211036364,
-          "precision_mean": 0.5213093272096394,
-          "precision_std": 0.045691528280087906,
-          "recall_mean": 0.5124121779859485,
-          "recall_std": 0.1801020514980722
-        },
-        {
-          "n_positive": 2,
-          "auc_mean": 0.5525788534021028,
-          "auc_std": 0.045763319665917984,
-          "f1_mean": 0.4638945410141794,
-          "f1_std": 0.15308428095526921,
-          "precision_mean": 0.5144641913110812,
-          "precision_std": 0.05689015529886579,
-          "recall_mean": 0.4774647887323944,
-          "recall_std": 0.2414834724185973
-        },
-        {
-          "n_positive": 5,
-          "auc_mean": 0.6447149427985402,
-          "auc_std": 0.059226048615976766,
-          "f1_mean": 0.5914280654459622,
-          "f1_std": 0.07445290366757559,
-          "precision_mean": 0.5904145611980389,
-          "precision_std": 0.058742798175248315,
-          "recall_mean": 0.5971631205673759,
-          "recall_std": 0.1041220206789659
-        },
-        {
-          "n_positive": 10,
-          "auc_mean": 0.6909720473432385,
-          "auc_std": 0.044889254568355026,
-          "f1_mean": 0.6427088666652515,
-          "f1_std": 0.05601010501715837,
-          "precision_mean": 0.6131301380708727,
-          "precision_std": 0.03293937341462969,
-          "recall_mean": 0.6789473684210526,
-          "recall_std": 0.08870921787479827
-        },
-        {
-          "n_positive": 20,
-          "auc_mean": 0.7554342079969242,
-          "auc_std": 0.013823017444741686,
-          "f1_mean": 0.715797940660274,
-          "f1_std": 0.011208265822127287,
-          "precision_mean": 0.709159810892978,
-          "precision_std": 0.02752199205963543,
-          "recall_mean": 0.7264705882352942,
-          "recall_std": 0.04986043574490747
-        },
-        {
-          "n_positive": 50,
-          "auc_mean": 0.830925785952241,
-          "auc_std": 0.013378191712380208,
-          "f1_mean": 0.7847025184203726,
-          "f1_std": 0.012904854702400857,
-          "precision_mean": 0.7496981189982874,
-          "precision_std": 0.015606863868167519,
-          "recall_mean": 0.8238095238095239,
-          "recall_std": 0.024453375678923483
-        },
-        {
-          "n_positive": 100,
-          "auc_mean": 0.8709696609161213,
-          "auc_std": 0.01127375223504866,
-          "f1_mean": 0.8160640429955903,
-          "f1_std": 0.012898615672177496,
-          "precision_mean": 0.7851941833473314,
-          "precision_std": 0.014059216920011879,
-          "recall_mean": 0.85,
-          "recall_std": 0.02426798627089319
-        }
-      ]
+      "n_occurrences_raw": 428,
+      "n_occurrences_thinned": 86,
+      "n_valid_folds": 9,
+      "auc_mean": 0.6210644663300342,
+      "auc_std": 0.13548917005482236,
+      "auc_vs_random": 0.12444012864679066,
+      "f1_mean": 0.5472380923361315,
+      "precision_mean": 0.6395265228598562,
+      "recall_mean": 0.5055759055759056,
+      "optimal_threshold": 0.11666666666666667
     },
     {
       "species": "Urtica dioica",
-      "n_occurrences": 634,
-      "results": [
-        {
-          "n_positive": 1,
-          "auc_mean": 0.47462495850896824,
-          "auc_std": 0.06412034662221532,
-          "f1_mean": 0.48113345114094075,
-          "f1_std": 0.09609542755668926,
-          "precision_mean": 0.4728641761186321,
-          "precision_std": 0.03936540118084369,
-          "recall_mean": 0.5162717219589258,
-          "recall_std": 0.18787389814377506
-        },
-        {
-          "n_positive": 2,
-          "auc_mean": 0.6158863763819901,
-          "auc_std": 0.058248473571190285,
-          "f1_mean": 0.46185012579715784,
-          "f1_std": 0.1030580102190049,
-          "precision_mean": 0.6218914789215294,
-          "precision_std": 0.09549451223326481,
-          "recall_mean": 0.40537974683544303,
-          "recall_std": 0.17923632709852805
-        },
-        {
-          "n_positive": 5,
-          "auc_mean": 0.6341420631329917,
-          "auc_std": 0.03740524652330056,
-          "f1_mean": 0.6043402083089188,
-          "f1_std": 0.07150125070282712,
-          "precision_mean": 0.5873188290900329,
-          "precision_std": 0.04474755089973474,
-          "recall_mean": 0.6346581875993641,
-          "recall_std": 0.1256400478837751
-        },
-        {
-          "n_positive": 10,
-          "auc_mean": 0.6873931623931624,
-          "auc_std": 0.030697920173908225,
-          "f1_mean": 0.6561941595389122,
-          "f1_std": 0.034276872324367186,
-          "precision_mean": 0.6288733188009176,
-          "precision_std": 0.028725650268917626,
-          "recall_mean": 0.6881410256410256,
-          "recall_std": 0.05428507010488163
-        },
-        {
-          "n_positive": 20,
-          "auc_mean": 0.7317642627507983,
-          "auc_std": 0.017847287838936424,
-          "f1_mean": 0.6683263592489149,
-          "f1_std": 0.011609889231834838,
-          "precision_mean": 0.6445430208451123,
-          "precision_std": 0.04540175916605364,
-          "recall_mean": 0.7035830618892509,
-          "recall_std": 0.06552819823053022
-        },
-        {
-          "n_positive": 50,
-          "auc_mean": 0.8044121786451492,
-          "auc_std": 0.042230152548172056,
-          "f1_mean": 0.750856812883042,
-          "f1_std": 0.034085188248796604,
-          "precision_mean": 0.7402980264597014,
-          "precision_std": 0.04606139749146092,
-          "recall_mean": 0.763013698630137,
-          "recall_std": 0.03217355940152892
-        },
-        {
-          "n_positive": 100,
-          "auc_mean": 0.8509777104462118,
-          "auc_std": 0.012727750100277014,
-          "f1_mean": 0.7931668161512441,
-          "f1_std": 0.009728623842976491,
-          "precision_mean": 0.7611368350509335,
-          "precision_std": 0.017161157258779116,
-          "recall_mean": 0.8284644194756554,
-          "recall_std": 0.014726294570290257
-        }
-      ]
+      "n_occurrences_raw": 635,
+      "n_occurrences_thinned": 109,
+      "n_valid_folds": 9,
+      "auc_mean": 0.6285723541980306,
+      "auc_std": 0.1587474081072101,
+      "auc_vs_random": 0.13705190333881484,
+      "f1_mean": 0.6018088097371985,
+      "precision_mean": 0.6982323232323232,
+      "recall_mean": 0.5558321308321309,
+      "optimal_threshold": 0.17777777777777778
+    },
+    {
+      "species": "Alnus glutinosa",
+      "n_occurrences_raw": 70,
+      "n_occurrences_thinned": 33,
+      "n_valid_folds": 6,
+      "auc_mean": 0.4854702326293236,
+      "auc_std": 0.20228487042155263,
+      "auc_vs_random": -0.006963479491888626,
+      "f1_mean": 0.3183982683982684,
+      "precision_mean": 0.49999999999999994,
+      "recall_mean": 0.288510101010101,
+      "optimal_threshold": 0.16666666666666666
+    },
+    {
+      "species": "Salix caprea",
+      "n_occurrences_raw": 47,
+      "n_occurrences_thinned": 20,
+      "n_valid_folds": 7,
+      "auc_mean": 0.7876984126984128,
+      "auc_std": 0.21956675887396693,
+      "auc_vs_random": 0.2731150793650793,
+      "f1_mean": 0.6938775510204083,
+      "precision_mean": 0.75,
+      "recall_mean": 0.6785714285714286,
+      "optimal_threshold": 0.10714285714285714
     }
   ]
 }
