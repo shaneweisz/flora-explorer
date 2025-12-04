@@ -611,7 +611,7 @@ export default function Home() {
           </h1>
           <p className="text-zinc-600 dark:text-zinc-400">
             {stats
-              ? `Breaking down GBIF occurrence data for ${formatNumber(stats.total)} plant species across the world`
+              ? `Breaking down GBIF occurrence data for ${formatNumber(stats.total)} plant species ${selectedCountry && selectedCountryName ? `in ${selectedCountryName}` : "across the world"}`
               : regionMode === "country" && !selectedCountry
                 ? "Select a country on the map to explore its plant species"
                 : `Loading...`}
