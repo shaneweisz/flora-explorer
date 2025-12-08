@@ -111,6 +111,17 @@ const WorldMap = dynamic(
   { ssr: false }
 );
 
+// Dynamically import RedListView component
+const RedListView = dynamic(
+  () => import("../components/redlist/RedListView"),
+  { ssr: false, loading: () => (
+    <div className="flex flex-col items-center justify-center py-20">
+      <div className="animate-spin h-10 w-10 border-4 border-red-600 border-t-transparent rounded-full" />
+      <p className="mt-4 text-zinc-500 dark:text-zinc-400">Loading Red List view...</p>
+    </div>
+  )}
+);
+
 // ============================================================================
 // Constants
 // ============================================================================
@@ -360,6 +371,9 @@ function ExpandedRow({ speciesKey, speciesName, regionMode, countryCode, mounted
 // ============================================================================
 
 export default function Home() {
+  // Tab navigation
+  const [activeTab, setActiveTab] = useState<"gbif" | "redlist">("gbif");
+
   // Region mode
   const [regionMode, setRegionMode] = useState<RegionMode>("global");
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
@@ -589,17 +603,46 @@ export default function Home() {
       <main className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-6 flex items-start justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">
-              Plant GBIF Data Explorer
-            </h1>
-            <p className="text-zinc-600 dark:text-zinc-400">
-              {stats
-                ? `Breaking down GBIF occurrence data for ${formatNumber(stats.total)} plant species ${selectedCountry && selectedCountryName ? `in ${selectedCountryName}` : "across the world"}`
-                : regionMode === "country" && !selectedCountry
-                  ? "Select a country on the map to explore its plant species"
-                  : `Loading...`}
-            </p>
+          <div className="flex items-center gap-6">
+            <div>
+              <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">
+                {activeTab === "gbif" ? "Plant GBIF Data Explorer" : "Plant Conservation Status"}
+              </h1>
+              <p className="text-zinc-600 dark:text-zinc-400">
+                {activeTab === "gbif" ? (
+                  stats
+                    ? `Breaking down GBIF occurrence data for ${formatNumber(stats.total)} plant species ${selectedCountry && selectedCountryName ? `in ${selectedCountryName}` : "across the world"}`
+                    : regionMode === "country" && !selectedCountry
+                      ? "Select a country on the map to explore its plant species"
+                      : `Loading...`
+                ) : (
+                  "IUCN Red List statistics for plant species"
+                )}
+              </p>
+            </div>
+            {/* Tab Navigation */}
+            <div className="flex gap-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg p-1">
+              <button
+                onClick={() => setActiveTab("gbif")}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === "gbif"
+                    ? "bg-white dark:bg-zinc-900 text-green-600 shadow-sm"
+                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                }`}
+              >
+                GBIF Explorer
+              </button>
+              <button
+                onClick={() => setActiveTab("redlist")}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === "redlist"
+                    ? "bg-white dark:bg-zinc-900 text-red-600 shadow-sm"
+                    : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                }`}
+              >
+                Red List Stats
+              </button>
+            </div>
           </div>
           <a
             href="/experiment"
@@ -612,9 +655,14 @@ export default function Home() {
           </a>
         </div>
 
-        {/* Stats, Map, and Distribution - 15% | 50% | 35% layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-20 gap-4 mb-4">
-          {/* Stats stacked vertically - takes 3 columns (15%) */}
+        {/* Tab Content */}
+        {activeTab === "redlist" ? (
+          <RedListView />
+        ) : (
+          <>
+            {/* Stats, Map, and Distribution - 15% | 50% | 35% layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-20 gap-4 mb-4">
+              {/* Stats stacked vertically - takes 3 columns (15%) */}
           {stats && (
             <div className="flex flex-col gap-3 lg:col-span-3">
               <div className="bg-white dark:bg-zinc-900 rounded-xl p-3 shadow-sm border border-zinc-200 dark:border-zinc-800 flex flex-col justify-center">
@@ -976,6 +1024,8 @@ export default function Home() {
               </button>
             </div>
           </div>
+        )}
+          </>
         )}
       </main>
     </div>
