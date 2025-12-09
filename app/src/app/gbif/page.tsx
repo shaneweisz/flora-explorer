@@ -629,7 +629,7 @@ export default function Home() {
           <div>
             <div className="flex items-center gap-3 mb-2">
               <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">
-                GBIF Explorer
+                GBIF Dashboard
               </h1>
               {selectedTaxon && taxonConfig && (
                 <div className="flex items-center gap-2">

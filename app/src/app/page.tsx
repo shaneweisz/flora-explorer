@@ -28,10 +28,10 @@ export default function RedListPage() {
         <div className="mb-6 flex items-start justify-between">
           <div>
             <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">
-              Red List Explorer
+              IUCN Red List Dashboard
             </h1>
             <p className="text-zinc-600 dark:text-zinc-400">
-              IUCN Red List assessment statistics
+              Assessment statistics by taxon
             </p>
           </div>
           <div className="flex items-center gap-2">
