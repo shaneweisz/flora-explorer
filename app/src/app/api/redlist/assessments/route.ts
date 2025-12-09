@@ -11,7 +11,7 @@ interface YearRange {
 }
 
 interface Species {
-  year_published: string;
+  assessment_date: string | null;
 }
 
 interface PrecomputedData {
@@ -88,13 +88,15 @@ export async function GET(request: NextRequest) {
     "20+ years": 0,
   };
 
-  // Count species by year range
+  // Count species by year range (based on assessment_date)
   for (const species of data.species) {
-    const yearPublished = parseInt(species.year_published, 10);
-    if (!isNaN(yearPublished)) {
-      const yearsSince = currentYear - yearPublished;
-      const range = getYearRange(yearsSince);
-      yearCounts[range]++;
+    if (species.assessment_date) {
+      const assessmentYear = new Date(species.assessment_date).getFullYear();
+      if (!isNaN(assessmentYear)) {
+        const yearsSince = currentYear - assessmentYear;
+        const range = getYearRange(yearsSince);
+        yearCounts[range]++;
+      }
     }
   }
 
