@@ -40,16 +40,17 @@ const IUCN_SOURCE_URL = "https://nc.iucnredlist.org/redlist/content/attachment_f
 
 export const TAXA: TaxonConfig[] = [
   {
-    id: "plantae",
-    name: "Plants",
-    apiEndpoint: "kingdom/Plantae",
-    estimatedDescribed: 426132,
+    id: "aves",
+    name: "Birds",
+    apiEndpoint: "class/Aves",
+    estimatedDescribed: 11185,
     estimatedSource: IUCN_SOURCE,
     estimatedSourceUrl: IUCN_SOURCE_URL,
-    dataFile: "redlist-plantae.json",
-    gbifDataFile: "gbif-plantae.csv",
-    gbifKingdomKey: 6,
-    color: "#22c55e", // green-500
+    dataFile: "redlist-aves.json",
+    gbifDataFile: "gbif-aves.csv",
+    gbifKingdomKey: 1,
+    gbifClassKey: 212,
+    color: "#3b82f6", // blue-500
   },
   {
     id: "mammalia",
@@ -63,19 +64,6 @@ export const TAXA: TaxonConfig[] = [
     gbifKingdomKey: 1,
     gbifClassKey: 359,
     color: "#f97316", // orange-500
-  },
-  {
-    id: "aves",
-    name: "Birds",
-    apiEndpoint: "class/Aves",
-    estimatedDescribed: 11185,
-    estimatedSource: IUCN_SOURCE,
-    estimatedSourceUrl: IUCN_SOURCE_URL,
-    dataFile: "redlist-aves.json",
-    gbifDataFile: "gbif-aves.csv",
-    gbifKingdomKey: 1,
-    gbifClassKey: 212,
-    color: "#3b82f6", // blue-500
   },
   {
     id: "reptilia",
@@ -135,6 +123,18 @@ export const TAXA: TaxonConfig[] = [
     gbifKingdomKey: 1,
     gbifClassKeys: [216, 367, 225, 137, 229, 206], // Insecta, Arachnida, Gastropoda, Bivalvia, Malacostraca, Anthozoa
     color: "#78716c", // stone-500
+  },
+  {
+    id: "plantae",
+    name: "Plants",
+    apiEndpoint: "kingdom/Plantae",
+    estimatedDescribed: 426132,
+    estimatedSource: IUCN_SOURCE,
+    estimatedSourceUrl: IUCN_SOURCE_URL,
+    dataFile: "redlist-plantae.json",
+    gbifDataFile: "gbif-plantae.csv",
+    gbifKingdomKey: 6,
+    color: "#22c55e", // green-500
   },
   {
     id: "fungi",
