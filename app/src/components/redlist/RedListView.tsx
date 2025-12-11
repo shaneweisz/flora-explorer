@@ -909,6 +909,9 @@ export default function RedListView({ onTaxonChange }: RedListViewProps) {
                 <th className="px-4 py-3 text-right text-xs font-medium text-zinc-500 uppercase tracking-wider">
                   GBIF Occurrences Since Assessed
                 </th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                  Red List
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
@@ -1025,16 +1028,7 @@ export default function RedListView({ onTaxonChange }: RedListViewProps) {
                                   {details.recentInatObservations.length > 0 && details.inatTotalCount > 0 && (
                                     <div className="flex justify-between pl-3 text-[11px]">
                                       <span className="relative group/inat">
-                                        iNaturalist{" "}
-                                        <a
-                                          href={details.recentInatObservations[0]?.url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="text-amber-400 hover:text-amber-300 underline"
-                                          onClick={(e) => e.stopPropagation()}
-                                        >
-                                          (recent observations)
-                                        </a>
+                                        <span className="text-amber-400 hover:text-amber-300 cursor-pointer">iNaturalist</span>
                                         <div className="absolute right-0 bottom-full z-20 hidden group-hover/inat:block pb-2">
                                           <InatObservationPreview
                                             observations={details.recentInatObservations}
@@ -1131,16 +1125,7 @@ export default function RedListView({ onTaxonChange }: RedListViewProps) {
                                   {details.gbifNewByRecordType.iNaturalist != null && details.gbifNewByRecordType.iNaturalist > 0 && details.recentInatObservations.length > 0 && (
                                     <div className="flex justify-between pl-3 text-[11px]">
                                       <span className="relative group/inat2">
-                                        iNaturalist{" "}
-                                        <a
-                                          href={details.recentInatObservations[0]?.url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="text-amber-400 hover:text-amber-300 underline"
-                                          onClick={(e) => e.stopPropagation()}
-                                        >
-                                          (recent observations)
-                                        </a>
+                                        <span className="text-amber-400 hover:text-amber-300 cursor-pointer">iNaturalist</span>
                                         <div className="absolute right-0 bottom-full z-20 hidden group-hover/inat2:block pb-2">
                                           <InatObservationPreview
                                             observations={details.recentInatObservations}
@@ -1203,12 +1188,25 @@ export default function RedListView({ onTaxonChange }: RedListViewProps) {
                         details.gbifOccurrencesSinceAssessment.toLocaleString()
                       ) : "—"}
                     </td>
+                    <td className="px-4 py-3 text-center">
+                      <a
+                        href={s.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+                        title="View on IUCN Red List"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </a>
+                    </td>
                   </tr>
                 );
               })}
               {filteredSpecies.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-zinc-500">
+                  <td colSpan={9} className="px-4 py-8 text-center text-zinc-500">
                     No species found
                   </td>
                 </tr>
