@@ -3,6 +3,9 @@
  * =====================================
  *
  * Pre-computes species occurrence counts from GBIF for any taxon and saves to CSV.
+ * Output includes scientific names for Red List matching (no separate enrichment step needed).
+ *
+ * Output format: species_key,occurrence_count,scientific_name
  *
  * ## Problem This Solves
  *
@@ -25,6 +28,7 @@
  *    - Fetches each speciesKey from https://api.gbif.org/v1/species/{key}
  *    - Keeps only records where: rank=SPECIES AND taxonomicStatus=ACCEPTED
  *    - Filters out genera, families, subspecies, synonyms, etc.
+ *    - Also retrieves canonical names (used for Red List matching)
  *
  * ## Performance Notes
  *
@@ -160,6 +164,12 @@ interface SpeciesInfo {
   rank: string;
   taxonomicStatus: string;
   scientificName: string;
+  canonicalName: string;
+}
+
+interface ValidatedSpecies {
+  key: number;
+  canonicalName: string;
 }
 
 /**
@@ -183,10 +193,10 @@ interface SpeciesInfo {
  * - Plants: ~4% filtered (synonyms + infraspecific taxa)
  * - Invertebrates: ~0.5% filtered (mostly data quality issues)
  *
- * @returns Set of valid species keys that passed validation
+ * @returns Map of valid species keys to their canonical names
  */
-async function validateSpeciesKeys(speciesKeys: number[]): Promise<Set<number>> {
-  const validKeys = new Set<number>();
+async function validateSpeciesKeys(speciesKeys: number[]): Promise<Map<number, string>> {
+  const validSpecies = new Map<number, string>();
   const invalidKeys: Array<{ key: number; reason: string }> = [];
 
   console.log(`\nValidating ${speciesKeys.length} species keys...`);
@@ -199,7 +209,7 @@ async function validateSpeciesKeys(speciesKeys: number[]): Promise<Set<number>> 
         try {
           const response = await fetch(`https://api.gbif.org/v1/species/${key}`);
           if (!response.ok) {
-            return { key, rank: "UNKNOWN", taxonomicStatus: "UNKNOWN", scientificName: "Unknown" };
+            return { key, rank: "UNKNOWN", taxonomicStatus: "UNKNOWN", scientificName: "Unknown", canonicalName: "" };
           }
           const data = await response.json();
           return {
@@ -207,16 +217,17 @@ async function validateSpeciesKeys(speciesKeys: number[]): Promise<Set<number>> 
             rank: data.rank || "UNKNOWN",
             taxonomicStatus: data.taxonomicStatus || "UNKNOWN",
             scientificName: data.scientificName || "Unknown",
+            canonicalName: data.canonicalName || data.scientificName || "",
           };
         } catch {
-          return { key, rank: "ERROR", taxonomicStatus: "ERROR", scientificName: "Error" };
+          return { key, rank: "ERROR", taxonomicStatus: "ERROR", scientificName: "Error", canonicalName: "" };
         }
       })
     );
 
     for (const info of results) {
       if (info.rank === "SPECIES" && info.taxonomicStatus === "ACCEPTED") {
-        validKeys.add(info.key);
+        validSpecies.set(info.key, info.canonicalName);
       } else {
         invalidKeys.push({
           key: info.key,
@@ -226,7 +237,7 @@ async function validateSpeciesKeys(speciesKeys: number[]): Promise<Set<number>> 
     }
 
     const progress = Math.min(i + SPECIES_VALIDATION_BATCH_SIZE, speciesKeys.length);
-    process.stdout.write(`\r  Validated ${progress}/${speciesKeys.length} (${validKeys.size} valid, ${invalidKeys.length} filtered)`);
+    process.stdout.write(`\r  Validated ${progress}/${speciesKeys.length} (${validSpecies.size} valid, ${invalidKeys.length} filtered)`);
 
     if (i + SPECIES_VALIDATION_BATCH_SIZE < speciesKeys.length) {
       await delay(SPECIES_VALIDATION_DELAY);
@@ -243,7 +254,7 @@ async function validateSpeciesKeys(speciesKeys: number[]): Promise<Set<number>> 
     });
   }
 
-  return validKeys;
+  return validSpecies;
 }
 
 function buildGbifUrl(taxon: TaxonConfig, minCount?: number, maxCount?: number): string {
@@ -521,9 +532,17 @@ async function fetchAllSpeciesCounts(taxon: TaxonConfig): Promise<SpeciesCount[]
   return allResults;
 }
 
-function saveToCsv(results: SpeciesCount[], outputFile: string): void {
-  const header = "species_key,occurrence_count";
-  const rows = results.map((r) => `${r.speciesKey},${r.count}`);
+interface SpeciesCountWithName extends SpeciesCount {
+  scientificName: string;
+}
+
+function saveToCsv(results: SpeciesCountWithName[], outputFile: string): void {
+  const header = "species_key,occurrence_count,scientific_name";
+  const rows = results.map((r) => {
+    // Escape scientific name if it contains commas (shouldn't happen, but safe)
+    const safeName = r.scientificName.includes(",") ? `"${r.scientificName}"` : r.scientificName;
+    return `${r.speciesKey},${r.count},${safeName}`;
+  });
   const content = [header, ...rows].join("\n");
   fs.writeFileSync(outputFile, content);
 }
@@ -571,11 +590,17 @@ async function main() {
     console.log(`\nRaw species count (before validation): ${rawResults.length}`);
 
     // Validate species keys to filter out non-species and non-accepted taxa
+    // Also retrieves canonical names for Red List matching
     const speciesKeys = rawResults.map((r) => r.speciesKey);
-    const validKeys = await validateSpeciesKeys(speciesKeys);
+    const validSpecies = await validateSpeciesKeys(speciesKeys);
 
-    // Filter results to only include validated species
-    const results = rawResults.filter((r) => validKeys.has(r.speciesKey));
+    // Filter results to only include validated species, and add scientific names
+    const results: SpeciesCountWithName[] = rawResults
+      .filter((r) => validSpecies.has(r.speciesKey))
+      .map((r) => ({
+        ...r,
+        scientificName: validSpecies.get(r.speciesKey) || "",
+      }));
 
     console.log(`\nFinal species count (after validation): ${results.length}`);
 

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ThemeToggle } from "../../components/ThemeToggle";
-import { getTaxonConfig } from "@/config/taxa";
+import { getTaxonConfig, CATEGORY_COLORS } from "@/config/taxa";
 
 // Dynamically import GBIFTaxaSummary component
 const GBIFTaxaSummary = dynamic(
@@ -45,6 +45,8 @@ interface SpeciesRecord {
   occurrence_count: number;
   canonicalName?: string;
   vernacularName?: string;
+  scientific_name?: string;
+  redlist_category?: string | null;
 }
 
 interface SpeciesDetails {
@@ -98,6 +100,12 @@ interface Stats {
     lte100000: number;
     lte1000000: number;
   };
+  redlist?: {
+    assessed: number;
+    notAssessed: number;
+    assessedOccurrences: number;
+    notAssessedOccurrences: number;
+  };
 }
 
 interface ApiResponse {
@@ -112,6 +120,7 @@ interface ApiResponse {
 }
 
 type FilterPreset = "all" | "dataDeficient" | "veryRare" | "singletons";
+type RedlistFilter = "all" | "none" | "assessed";
 type RegionMode = "global" | "country";
 
 // Dynamically import WorldMap component
@@ -384,6 +393,7 @@ export default function Home() {
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
   const [filterPreset, setFilterPreset] = useState<FilterPreset>("all");
+  const [redlistFilter, setRedlistFilter] = useState<RedlistFilter>("all");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   // Species details cache (for images in table)
@@ -433,6 +443,7 @@ export default function Home() {
     setStats(null);
     setPagination({ page: 1, limit: 10, total: 0, totalPages: 0 });
     setFilterPreset("all");
+    setRedlistFilter("all");
     setSearchQuery("");
     setSearchResults(null);
     setSelectedSpeciesKey(null);
@@ -468,6 +479,11 @@ export default function Home() {
       sort: sortOrder,
     });
 
+    // Add redlist filter if not "all"
+    if (redlistFilter !== "all") {
+      params.set("redlist", redlistFilter);
+    }
+
     try {
       const response = await fetch(`${apiEndpoint}?${params}`);
       const result: ApiResponse = await response.json();
@@ -480,7 +496,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [pagination.page, pagination.limit, filterPreset, sortOrder, apiEndpoint, regionMode, selectedCountry, selectedTaxon]);
+  }, [pagination.page, pagination.limit, filterPreset, redlistFilter, sortOrder, apiEndpoint, regionMode, selectedCountry, selectedTaxon]);
 
   useEffect(() => {
     fetchData();
@@ -536,6 +552,11 @@ export default function Home() {
 
   const handleFilterChange = (preset: FilterPreset) => {
     setFilterPreset(preset);
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  };
+
+  const handleRedlistFilterChange = (filter: RedlistFilter) => {
+    setRedlistFilter(filter);
     setPagination((prev) => ({ ...prev, page: 1 }));
   };
 
@@ -784,6 +805,27 @@ export default function Home() {
               </button>
             )}
           </form>
+          {/* Red List filter toggle */}
+          <button
+            onClick={() => handleRedlistFilterChange(redlistFilter === "none" ? "all" : "none")}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+              redlistFilter === "none"
+                ? "bg-red-600 text-white"
+                : "bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700"
+            }`}
+            title={stats?.redlist ? `${formatNumber(stats.redlist.notAssessed)} species without Red List assessment` : "Filter to species without Red List assessment"}
+          >
+            {redlistFilter === "none" ? (
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="9" strokeWidth={2} />
+              </svg>
+            )}
+            No Red List Assessment
+          </button>
           {availableCandidates.length > 0 && (
             <button
               onClick={() => setShowOnlyWithCandidates(!showOnlyWithCandidates)}
@@ -835,6 +877,9 @@ export default function Home() {
                 <th className="px-2 sm:px-4 py-3 text-right text-xs font-medium text-zinc-500 uppercase w-20 sm:w-28">
                   Count
                 </th>
+                <th className="hidden sm:table-cell px-2 sm:px-4 py-3 text-center text-xs font-medium text-zinc-500 uppercase w-16">
+                  Red List
+                </th>
                 <th className="hidden sm:table-cell px-2 sm:px-4 py-3 text-center text-xs font-medium text-zinc-500 uppercase w-14">
                   GBIF
                 </th>
@@ -843,7 +888,7 @@ export default function Home() {
             <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-zinc-500">
+                  <td colSpan={7} className="px-4 py-8 text-center text-zinc-500">
                     Loading...
                   </td>
                 </tr>
@@ -948,6 +993,21 @@ export default function Home() {
                           {formatNumber(record.occurrence_count)}
                         </td>
                         <td className="hidden sm:table-cell px-2 sm:px-4 py-2 text-center">
+                          {record.redlist_category ? (
+                            <span
+                              className="px-1.5 py-0.5 text-xs font-medium rounded"
+                              style={{
+                                backgroundColor: CATEGORY_COLORS[record.redlist_category] || "#6b7280",
+                                color: ["LC", "NT", "VU"].includes(record.redlist_category) ? "#000" : "#fff",
+                              }}
+                            >
+                              {record.redlist_category}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-zinc-400">—</span>
+                          )}
+                        </td>
+                        <td className="hidden sm:table-cell px-2 sm:px-4 py-2 text-center">
                           <a
                             href={`https://www.gbif.org/species/${record.species_key}`}
                             target="_blank"
@@ -968,7 +1028,7 @@ export default function Home() {
                           regionMode={regionMode}
                           countryCode={selectedCountry}
                           mounted={mounted}
-                          colSpan={6}
+                          colSpan={7}
                           hasCandidates={hasCandidates}
                         />
                       )}
