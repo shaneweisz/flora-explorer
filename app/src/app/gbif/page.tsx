@@ -189,6 +189,15 @@ function getCandidateKey(canonicalName: string | undefined): string | undefined 
 // Components
 // ============================================================================
 
+// iNaturalist observation interface
+interface InatObservation {
+  url: string;
+  date: string | null;
+  imageUrl: string | null;
+  location: string | null;
+  observer: string | null;
+}
+
 // Record type breakdown interface
 interface RecordTypeBreakdown {
   humanObservation: number;
@@ -196,6 +205,68 @@ interface RecordTypeBreakdown {
   machineObservation: number;
   other: number;
   iNaturalist: number;
+  recentInatObservations?: InatObservation[];
+  inatTotalCount?: number;
+}
+
+// Component for iNaturalist observation preview with navigation
+function InatObservationPreview({
+  observations,
+  currentIndex,
+  onNavigate,
+  totalCount,
+}: {
+  observations: InatObservation[];
+  currentIndex: number;
+  onNavigate: (delta: number) => void;
+  totalCount: number;
+}) {
+  if (observations.length === 0) return null;
+  const obs = observations[currentIndex] || observations[0];
+  if (!obs?.imageUrl) return null;
+
+  return (
+    <div className="bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl p-2 w-56">
+      {/* Navigation header */}
+      {observations.length > 1 && (
+        <div className="flex items-center justify-between mb-2 text-[10px] text-zinc-400">
+          <button
+            type="button"
+            onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onNavigate(-1); }}
+            disabled={currentIndex === 0}
+            className="p-1 hover:bg-zinc-800 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <span>{currentIndex + 1} / {observations.length}{totalCount > observations.length ? ` of ${totalCount.toLocaleString()}` : ''}</span>
+          <button
+            type="button"
+            onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onNavigate(1); }}
+            disabled={currentIndex >= observations.length - 1}
+            className="p-1 hover:bg-zinc-800 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      )}
+      <a href={obs.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+        <img
+          src={obs.imageUrl.replace('/original.', '/medium.')}
+          alt="iNaturalist observation"
+          className="w-full h-40 object-cover rounded mb-2 hover:opacity-90"
+        />
+      </a>
+      <div className="text-[10px] text-zinc-300 space-y-0.5">
+        {obs.date && <div>{obs.date}</div>}
+        {obs.observer && <div className="truncate">{obs.observer}</div>}
+        {obs.location && <div className="truncate text-zinc-400">{obs.location}</div>}
+      </div>
+    </div>
+  );
 }
 
 // Breakdown tooltip component (shown on hover over count)
@@ -212,6 +283,7 @@ function BreakdownTooltip({
 }) {
   const [breakdown, setBreakdown] = useState<RecordTypeBreakdown | null>(null);
   const [loading, setLoading] = useState(true);
+  const [inatIndex, setInatIndex] = useState(0);
 
   useEffect(() => {
     const fetchBreakdown = async () => {
@@ -232,6 +304,12 @@ function BreakdownTooltip({
     };
     fetchBreakdown();
   }, [speciesKey, countryCode, onDataLoaded]);
+
+  const handleInatNavigate = (delta: number) => {
+    if (!breakdown?.recentInatObservations) return;
+    const newIndex = Math.max(0, Math.min(breakdown.recentInatObservations.length - 1, inatIndex + delta));
+    setInatIndex(newIndex);
+  };
 
   return (
     <div className="bg-zinc-800 dark:bg-zinc-900 border border-zinc-700 rounded-lg shadow-lg p-2 text-xs text-left min-w-[200px]">
@@ -254,7 +332,19 @@ function BreakdownTooltip({
           </div>
           {breakdown.iNaturalist > 0 && (
             <div className="flex justify-between pl-3 text-[11px]">
-              <span className="text-amber-400">iNaturalist</span>
+              <span className="relative group/inat">
+                <span className="text-amber-400 hover:text-amber-300 cursor-pointer">iNaturalist</span>
+                {breakdown.recentInatObservations && breakdown.recentInatObservations.length > 0 && (
+                  <div className="absolute right-0 bottom-full z-20 hidden group-hover/inat:block pb-2">
+                    <InatObservationPreview
+                      observations={breakdown.recentInatObservations}
+                      currentIndex={inatIndex}
+                      onNavigate={handleInatNavigate}
+                      totalCount={breakdown.inatTotalCount || breakdown.iNaturalist}
+                    />
+                  </div>
+                )}
+              </span>
               <a
                 href={`https://www.gbif.org/occurrence/search?dataset_key=50c9509d-22c7-4a22-a47d-8c48425ef4a7&taxon_key=${speciesKey}${countryCode ? `&country=${countryCode}` : ""}`}
                 target="_blank"

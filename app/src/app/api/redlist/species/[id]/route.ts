@@ -108,7 +108,7 @@ export async function GET(
 
     // Parse GBIF response and fetch occurrence counts
     let gbifOccurrencesSinceAssessment: number | null = null;
-    let gbifByRecordType: { humanObservation: number; preservedSpecimen: number; machineObservation: number; other: number } | null = null;
+    let gbifByRecordType: { humanObservation: number; preservedSpecimen: number; machineObservation: number; other: number; iNaturalist: number } | null = null;
     let gbifNewByRecordType: { humanObservation: number; preservedSpecimen: number; machineObservation: number; other: number; iNaturalist: number } | null = null;
     let recentInatObservations: { url: string; date: string | null; imageUrl: string | null; location: string | null; observer: string | null }[] = [];
     let inatTotalCount = 0;
@@ -253,6 +253,7 @@ export async function GET(
             preservedSpecimen: specimen,
             machineObservation: machine,
             other: Math.max(0, other),
+            iNaturalist: inatTotalCount,
           };
 
           // Parse since-assessment counts if we requested them
