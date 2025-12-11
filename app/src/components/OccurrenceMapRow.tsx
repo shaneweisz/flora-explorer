@@ -31,11 +31,28 @@ interface OccurrenceFeature {
     gbifID: number;
     species: string;
     eventDate?: string;
+    basisOfRecord?: string;
   };
   geometry: {
     type: "Point";
     coordinates: [number, number];
   };
+}
+
+// Format basisOfRecord to human-readable string
+function formatBasisOfRecord(basis?: string): string {
+  if (!basis) return "";
+  const labels: Record<string, string> = {
+    HUMAN_OBSERVATION: "Human observation",
+    PRESERVED_SPECIMEN: "Preserved specimen",
+    MACHINE_OBSERVATION: "Machine observation",
+    FOSSIL_SPECIMEN: "Fossil specimen",
+    LIVING_SPECIMEN: "Living specimen",
+    MATERIAL_SAMPLE: "Material sample",
+    OCCURRENCE: "Occurrence",
+    MATERIAL_CITATION: "Material citation",
+  };
+  return labels[basis] || basis.replace(/_/g, " ").toLowerCase();
 }
 
 interface CandidateFeature {
@@ -242,6 +259,11 @@ export default function OccurrenceMapRow({
                             <div className="font-medium italic">
                               {feature.properties.species}
                             </div>
+                            {feature.properties.basisOfRecord && (
+                              <div className="text-xs text-gray-600">
+                                {formatBasisOfRecord(feature.properties.basisOfRecord)}
+                              </div>
+                            )}
                             {feature.properties.eventDate && (
                               <div className="text-xs">
                                 {feature.properties.eventDate}

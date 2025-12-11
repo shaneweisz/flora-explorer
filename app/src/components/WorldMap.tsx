@@ -194,12 +194,23 @@ function WorldMap({ selectedCountry, onCountrySelect, onClearSelection, selected
 
       {/* Hover tooltip */}
       {hoveredCountry && (
-        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-10 bg-white dark:bg-zinc-800 px-3 py-2 rounded shadow-lg text-sm text-zinc-700 dark:text-zinc-300 pointer-events-none">
-          <div className="font-medium">{hoveredCountry}</div>
-          {hoveredStats && (
-            <div className="text-xs text-zinc-500">
-              {formatNumber(hoveredStats.occurrences)} occurrences
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-10 bg-white dark:bg-zinc-800 px-3 py-2 rounded-lg shadow-lg text-sm text-zinc-700 dark:text-zinc-300 pointer-events-none border border-zinc-200 dark:border-zinc-700 min-w-[140px]">
+          <div className="font-medium text-zinc-900 dark:text-zinc-100">{hoveredCountry}</div>
+          {hoveredStats ? (
+            <div className="mt-1 space-y-0.5">
+              <div className="flex justify-between gap-4 text-xs">
+                <span className="text-zinc-500">Occurrences</span>
+                <span className="font-medium text-zinc-700 dark:text-zinc-300 tabular-nums">{formatNumber(hoveredStats.occurrences)}</span>
+              </div>
+              {hoveredStats.species > 0 && (
+                <div className="flex justify-between gap-4 text-xs">
+                  <span className="text-zinc-500">Species</span>
+                  <span className="font-medium text-zinc-700 dark:text-zinc-300 tabular-nums">{formatNumber(hoveredStats.species)}</span>
+                </div>
+              )}
             </div>
+          ) : (
+            <div className="text-xs text-zinc-400 mt-1">No data available</div>
           )}
         </div>
       )}

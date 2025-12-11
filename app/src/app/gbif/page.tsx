@@ -68,11 +68,28 @@ interface OccurrenceFeature {
     gbifID: number;
     species: string;
     eventDate?: string;
+    basisOfRecord?: string;
   };
   geometry: {
     type: "Point";
     coordinates: [number, number];
   };
+}
+
+// Format basisOfRecord to human-readable string
+function formatBasisOfRecord(basis?: string): string {
+  if (!basis) return "";
+  const labels: Record<string, string> = {
+    HUMAN_OBSERVATION: "Human observation",
+    PRESERVED_SPECIMEN: "Preserved specimen",
+    MACHINE_OBSERVATION: "Machine observation",
+    FOSSIL_SPECIMEN: "Fossil specimen",
+    LIVING_SPECIMEN: "Living specimen",
+    MATERIAL_SAMPLE: "Material sample",
+    OCCURRENCE: "Occurrence",
+    MATERIAL_CITATION: "Material citation",
+  };
+  return labels[basis] || basis.replace(/_/g, " ").toLowerCase();
 }
 
 interface CandidateFeature {
@@ -171,6 +188,121 @@ function getCandidateKey(canonicalName: string | undefined): string | undefined 
 // ============================================================================
 // Components
 // ============================================================================
+
+// Record type breakdown interface
+interface RecordTypeBreakdown {
+  humanObservation: number;
+  preservedSpecimen: number;
+  machineObservation: number;
+  other: number;
+  iNaturalist: number;
+}
+
+// Breakdown tooltip component (shown on hover over count)
+function BreakdownTooltip({
+  speciesKey,
+  countryCode,
+  totalCount,
+  onDataLoaded,
+}: {
+  speciesKey: number;
+  countryCode?: string | null;
+  totalCount: number;
+  onDataLoaded?: (data: RecordTypeBreakdown) => void;
+}) {
+  const [breakdown, setBreakdown] = useState<RecordTypeBreakdown | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchBreakdown = async () => {
+      try {
+        const params = new URLSearchParams();
+        if (countryCode) params.set("country", countryCode);
+        const res = await fetch(`/api/species/${speciesKey}/breakdown?${params}`);
+        if (res.ok) {
+          const data = await res.json();
+          setBreakdown(data);
+          onDataLoaded?.(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch breakdown:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchBreakdown();
+  }, [speciesKey, countryCode, onDataLoaded]);
+
+  return (
+    <div className="bg-zinc-800 dark:bg-zinc-900 border border-zinc-700 rounded-lg shadow-lg p-2 text-xs text-left min-w-[200px]">
+      <div className="text-zinc-300 font-medium mb-1">Breakdown by type:</div>
+      {loading ? (
+        <div className="text-zinc-400 animate-pulse">Loading...</div>
+      ) : breakdown ? (
+        <div className="space-y-0.5 text-zinc-400">
+          <div className="flex justify-between">
+            <span>Human observations</span>
+            <a
+              href={`https://www.gbif.org/occurrence/search?basis_of_record=HUMAN_OBSERVATION&taxon_key=${speciesKey}${countryCode ? `&country=${countryCode}` : ""}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-zinc-200 hover:text-blue-400 hover:underline tabular-nums"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {breakdown.humanObservation.toLocaleString()}
+            </a>
+          </div>
+          {breakdown.iNaturalist > 0 && (
+            <div className="flex justify-between pl-3 text-[11px]">
+              <span className="text-amber-400">iNaturalist</span>
+              <a
+                href={`https://www.gbif.org/occurrence/search?dataset_key=50c9509d-22c7-4a22-a47d-8c48425ef4a7&taxon_key=${speciesKey}${countryCode ? `&country=${countryCode}` : ""}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-zinc-300 hover:text-amber-400 hover:underline tabular-nums"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {breakdown.iNaturalist.toLocaleString()}
+              </a>
+            </div>
+          )}
+          <div className="flex justify-between">
+            <span>Preserved specimens</span>
+            <a
+              href={`https://www.gbif.org/occurrence/search?basis_of_record=PRESERVED_SPECIMEN&taxon_key=${speciesKey}${countryCode ? `&country=${countryCode}` : ""}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-zinc-200 hover:text-blue-400 hover:underline tabular-nums"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {breakdown.preservedSpecimen.toLocaleString()}
+            </a>
+          </div>
+          <div className="flex justify-between">
+            <span>Machine observations</span>
+            <a
+              href={`https://www.gbif.org/occurrence/search?basis_of_record=MACHINE_OBSERVATION&taxon_key=${speciesKey}${countryCode ? `&country=${countryCode}` : ""}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-zinc-200 hover:text-blue-400 hover:underline tabular-nums"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {breakdown.machineObservation.toLocaleString()}
+            </a>
+          </div>
+          {breakdown.other > 0 && (
+            <div className="flex justify-between">
+              <span>Other</span>
+              <span className="text-zinc-200 tabular-nums">{breakdown.other.toLocaleString()}</span>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="text-zinc-500">No data available</div>
+      )}
+    </div>
+  );
+}
 
 interface ExpandedRowProps {
   speciesKey: number;
@@ -341,6 +473,11 @@ function ExpandedRow({ speciesKey, speciesName, regionMode, countryCode, mounted
                         <Popup>
                           <div className="text-sm">
                             <div className="font-medium italic">{feature.properties.species}</div>
+                            {feature.properties.basisOfRecord && (
+                              <div className="text-xs text-gray-600">
+                                {formatBasisOfRecord(feature.properties.basisOfRecord)}
+                              </div>
+                            )}
                             {feature.properties.eventDate && (
                               <div className="text-xs">{feature.properties.eventDate}</div>
                             )}
@@ -924,7 +1061,26 @@ export default function Home() {
                         </div>
                       </td>
                       <td className="px-2 sm:px-4 py-2 text-sm text-right font-medium text-zinc-900 dark:text-zinc-100">
-                        {species.occurrenceCount ? formatNumber(species.occurrenceCount) : "—"}
+                        {species.occurrenceCount ? (
+                          <span className="relative group/count">
+                            <a
+                              href={`https://www.gbif.org/occurrence/search?taxon_key=${species.key}${regionMode === "country" && selectedCountry ? `&country=${selectedCountry}` : ""}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline decoration-dotted hover:decoration-solid"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {formatNumber(species.occurrenceCount)}
+                            </a>
+                            <div className="absolute right-0 bottom-full z-10 hidden group-hover/count:block pb-2 pr-2 -mr-2">
+                              <BreakdownTooltip
+                                speciesKey={species.key}
+                                countryCode={regionMode === "country" ? selectedCountry : null}
+                                totalCount={species.occurrenceCount}
+                              />
+                            </div>
+                          </span>
+                        ) : "—"}
                       </td>
                       <td className="hidden sm:table-cell px-2 sm:px-4 py-2 text-center">
                         <a
@@ -1026,7 +1182,24 @@ export default function Home() {
                           </div>
                         </td>
                         <td className="px-2 sm:px-4 py-2 text-sm text-right font-medium text-zinc-900 dark:text-zinc-100">
-                          {formatNumber(record.occurrence_count)}
+                          <span className="relative group/count">
+                            <a
+                              href={`https://www.gbif.org/occurrence/search?taxon_key=${record.species_key}${regionMode === "country" && selectedCountry ? `&country=${selectedCountry}` : ""}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline decoration-dotted hover:decoration-solid"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {formatNumber(record.occurrence_count)}
+                            </a>
+                            <div className="absolute right-0 bottom-full z-10 hidden group-hover/count:block pb-2 pr-2 -mr-2">
+                              <BreakdownTooltip
+                                speciesKey={record.species_key}
+                                countryCode={regionMode === "country" ? selectedCountry : null}
+                                totalCount={record.occurrence_count}
+                              />
+                            </div>
+                          </span>
                         </td>
                         <td className="hidden sm:table-cell px-2 sm:px-4 py-2 text-center">
                           {record.redlist_category ? (
