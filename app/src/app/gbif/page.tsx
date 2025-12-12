@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ThemeToggle } from "../../components/ThemeToggle";
@@ -138,6 +139,16 @@ interface ApiResponse {
 type FilterPreset = "all" | "eq1" | "gt1_lte10" | "gt10_lte100" | "gt100_lte1000" | "gt1000_lte10000" | "gt10000";
 type RedlistFilter = "all" | "NE" | "DD" | "LC" | "NT" | "VU" | "EN" | "CR" | "EW" | "EX";
 type RegionMode = "global" | "country";
+type BasisOfRecordFilter = "all" | "HUMAN_OBSERVATION" | "PRESERVED_SPECIMEN" | "MATERIAL_SAMPLE" | "MACHINE_OBSERVATION" | "OTHER";
+type UncertaintyFilter = "all" | "10" | "100" | "1000" | "10000";
+type DataSourceFilter = "all" | "iNaturalist" | "iRecord" | "BSBI";
+
+interface FilterStats {
+  basisOfRecord: { key: string; label: string; count: number }[];
+  uncertainty: { key: string; label: string; count: number }[];
+  dataSources: { key: string; label: string; count: number }[];
+  total: number;
+}
 
 // Dynamically import WorldMap component
 const WorldMap = dynamic(
@@ -207,188 +218,85 @@ interface RecordTypeBreakdown {
   iNaturalist: number;
   recentInatObservations?: InatObservation[];
   inatTotalCount?: number;
+  total?: number;
 }
 
-// Component for iNaturalist observation preview with navigation
-function InatObservationPreview({
-  observations,
-  currentIndex,
-  onNavigate,
-  totalCount,
-}: {
-  observations: InatObservation[];
-  currentIndex: number;
-  onNavigate: (delta: number) => void;
-  totalCount: number;
-}) {
-  if (observations.length === 0) return null;
-  const obs = observations[currentIndex] || observations[0];
-  if (!obs?.imageUrl) return null;
-
-  return (
-    <div className="bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl p-2 w-56">
-      {/* Navigation header */}
-      {observations.length > 1 && (
-        <div className="flex items-center justify-between mb-2 text-[10px] text-zinc-400">
-          <button
-            type="button"
-            onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onNavigate(-1); }}
-            disabled={currentIndex === 0}
-            className="p-1 hover:bg-zinc-800 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <span>{currentIndex + 1} / {observations.length}{totalCount > observations.length ? ` of ${totalCount.toLocaleString()}` : ''}</span>
-          <button
-            type="button"
-            onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onNavigate(1); }}
-            disabled={currentIndex >= observations.length - 1}
-            className="p-1 hover:bg-zinc-800 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
-      )}
-      <a href={obs.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-        <img
-          src={obs.imageUrl.replace('/original.', '/medium.')}
-          alt="iNaturalist observation"
-          className="w-full h-40 object-cover rounded mb-2 hover:opacity-90"
-        />
-      </a>
-      <div className="text-[10px] text-zinc-300 space-y-0.5">
-        {obs.date && <div>{obs.date}</div>}
-        {obs.observer && <div className="truncate">{obs.observer}</div>}
-        {obs.location && <div className="truncate text-zinc-400">{obs.location}</div>}
-      </div>
-    </div>
-  );
-}
-
-// Breakdown tooltip component (shown on hover over count)
-function BreakdownTooltip({
-  speciesKey,
-  countryCode,
-  totalCount,
-  onDataLoaded,
-}: {
-  speciesKey: number;
-  countryCode?: string | null;
-  totalCount: number;
-  onDataLoaded?: (data: RecordTypeBreakdown) => void;
-}) {
-  const [breakdown, setBreakdown] = useState<RecordTypeBreakdown | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [inatIndex, setInatIndex] = useState(0);
+// iNat photo thumbnail with hover preview using portal
+function InatPhotoWithPreview({ obs, idx }: { obs: InatObservation; idx: number }) {
+  const [isHovered, setIsHovered] = useState(false);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+  const thumbRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const fetchBreakdown = async () => {
-      try {
-        const params = new URLSearchParams();
-        if (countryCode) params.set("country", countryCode);
-        const res = await fetch(`/api/species/${speciesKey}/breakdown?${params}`);
-        if (res.ok) {
-          const data = await res.json();
-          setBreakdown(data);
-          onDataLoaded?.(data);
-        }
-      } catch (err) {
-        console.error("Failed to fetch breakdown:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchBreakdown();
-  }, [speciesKey, countryCode, onDataLoaded]);
-
-  const handleInatNavigate = (delta: number) => {
-    if (!breakdown?.recentInatObservations) return;
-    const newIndex = Math.max(0, Math.min(breakdown.recentInatObservations.length - 1, inatIndex + delta));
-    setInatIndex(newIndex);
-  };
+    if (isHovered && thumbRef.current) {
+      const rect = thumbRef.current.getBoundingClientRect();
+      // Position: bottom-left of popup overlaps top-right of thumbnail for hover continuity
+      setPosition({
+        top: rect.top,
+        left: rect.right - 4, // slight overlap with thumbnail
+      });
+    }
+  }, [isHovered]);
 
   return (
-    <div className="bg-zinc-800 dark:bg-zinc-900 border border-zinc-700 rounded-lg shadow-lg p-2 text-xs text-left min-w-[200px]">
-      <div className="text-zinc-300 font-medium mb-1">Breakdown by type:</div>
-      {loading ? (
-        <div className="text-zinc-400 animate-pulse">Loading...</div>
-      ) : breakdown ? (
-        <div className="space-y-0.5 text-zinc-400">
-          <div className="flex justify-between">
-            <span>Human observations</span>
-            <a
-              href={`https://www.gbif.org/occurrence/search?basis_of_record=HUMAN_OBSERVATION&taxon_key=${speciesKey}${countryCode ? `&country=${countryCode}` : ""}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-zinc-200 hover:text-blue-400 hover:underline tabular-nums"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {breakdown.humanObservation.toLocaleString()}
-            </a>
+    <div
+      ref={thumbRef}
+      className="aspect-square relative"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <a
+        href={obs.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block w-full h-full"
+      >
+        {obs.imageUrl ? (
+          <img
+            src={obs.imageUrl}
+            alt={`iNaturalist observation ${idx + 1}`}
+            className={`w-full h-full object-cover rounded ring-1 ring-zinc-200 dark:ring-zinc-700 transition-all ${isHovered ? 'ring-2 ring-blue-500' : ''}`}
+          />
+        ) : (
+          <div className="w-full h-full bg-zinc-100 dark:bg-zinc-800 rounded flex items-center justify-center text-zinc-400 text-xs">
+            ?
           </div>
-          {breakdown.iNaturalist > 0 && (
-            <div className="flex justify-between pl-3 text-[11px]">
-              <span className="relative group/inat">
-                <span className="text-amber-400 hover:text-amber-300 cursor-pointer">iNaturalist</span>
-                {breakdown.recentInatObservations && breakdown.recentInatObservations.length > 0 && (
-                  <div className="absolute right-0 bottom-full z-20 hidden group-hover/inat:block pb-2">
-                    <InatObservationPreview
-                      observations={breakdown.recentInatObservations}
-                      currentIndex={inatIndex}
-                      onNavigate={handleInatNavigate}
-                      totalCount={breakdown.inatTotalCount || breakdown.iNaturalist}
-                    />
-                  </div>
-                )}
-              </span>
-              <a
-                href={`https://www.gbif.org/occurrence/search?dataset_key=50c9509d-22c7-4a22-a47d-8c48425ef4a7&taxon_key=${speciesKey}${countryCode ? `&country=${countryCode}` : ""}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-zinc-300 hover:text-amber-400 hover:underline tabular-nums"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {breakdown.iNaturalist.toLocaleString()}
-              </a>
+        )}
+      </a>
+      {/* Portal-based preview popup */}
+      {isHovered && obs.imageUrl && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed z-[99999]"
+          style={{ top: position.top, left: position.left, transform: 'translateY(-100%) translateY(8px)' }}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
+          <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden w-52">
+            <a href={obs.url} target="_blank" rel="noopener noreferrer">
+              <img
+                src={obs.imageUrl}
+                alt={`iNaturalist observation ${idx + 1}`}
+                className="w-full h-40 object-cover hover:opacity-90 cursor-pointer"
+              />
+            </a>
+            <div className="p-2 text-xs space-y-1">
+              {obs.date && (
+                <div className="text-zinc-500 dark:text-zinc-400">{obs.date}</div>
+              )}
+              {obs.observer && (
+                <div className="text-zinc-700 dark:text-zinc-300 truncate">
+                  <span className="text-zinc-400">by</span> {obs.observer}
+                </div>
+              )}
+              {obs.location && (
+                <div className="text-zinc-600 dark:text-zinc-400 truncate" title={obs.location}>
+                  {obs.location}
+                </div>
+              )}
             </div>
-          )}
-          <div className="flex justify-between">
-            <span>Preserved specimens</span>
-            <a
-              href={`https://www.gbif.org/occurrence/search?basis_of_record=PRESERVED_SPECIMEN&taxon_key=${speciesKey}${countryCode ? `&country=${countryCode}` : ""}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-zinc-200 hover:text-blue-400 hover:underline tabular-nums"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {breakdown.preservedSpecimen.toLocaleString()}
-            </a>
           </div>
-          <div className="flex justify-between">
-            <span>Machine observations</span>
-            <a
-              href={`https://www.gbif.org/occurrence/search?basis_of_record=MACHINE_OBSERVATION&taxon_key=${speciesKey}${countryCode ? `&country=${countryCode}` : ""}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-zinc-200 hover:text-blue-400 hover:underline tabular-nums"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {breakdown.machineObservation.toLocaleString()}
-            </a>
-          </div>
-          {breakdown.other > 0 && (
-            <div className="flex justify-between">
-              <span>Other</span>
-              <span className="text-zinc-200 tabular-nums">{breakdown.other.toLocaleString()}</span>
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="text-zinc-500">No data available</div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -402,15 +310,21 @@ interface ExpandedRowProps {
   mounted: boolean;
   colSpan: number;
   hasCandidates?: boolean;
+  maxUncertainty?: string | null;
+  dataSource?: string | null;
+  activeBasisOfRecord?: string | null;
 }
 
-function ExpandedRow({ speciesKey, speciesName, regionMode, countryCode, mounted, colSpan, hasCandidates }: ExpandedRowProps) {
+function ExpandedRow({ speciesKey, speciesName, regionMode, countryCode, mounted, colSpan, hasCandidates, maxUncertainty, dataSource, activeBasisOfRecord }: ExpandedRowProps) {
   const [occurrences, setOccurrences] = useState<OccurrenceFeature[]>([]);
   const [candidates, setCandidates] = useState<CandidateFeature[]>([]);
+  const [breakdown, setBreakdown] = useState<RecordTypeBreakdown | null>(null);
   const [loadingOccurrences, setLoadingOccurrences] = useState(true);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
+  const [loadingBreakdown, setLoadingBreakdown] = useState(true);
   const [showCandidates, setShowCandidates] = useState(true);
   const [heatmapOpacity, setHeatmapOpacity] = useState(0.7);
+  const [inatIndex, setInatIndex] = useState(0);
 
   // Build occurrences endpoint - add country filter if in country mode
   const occurrencesEndpoint = "/api/occurrences";
@@ -448,15 +362,99 @@ function ExpandedRow({ speciesKey, speciesName, regionMode, countryCode, mounted
       .finally(() => setLoadingCandidates(false));
   }, [speciesName, hasCandidates]);
 
+  // Fetch breakdown data
+  useEffect(() => {
+    setLoadingBreakdown(true);
+    const params = new URLSearchParams();
+    if (regionMode === "country" && countryCode) {
+      params.set("country", countryCode);
+    }
+    if (maxUncertainty) params.set("maxUncertainty", maxUncertainty);
+    if (dataSource) params.set("dataSource", dataSource);
+
+    fetch(`/api/species/${speciesKey}/breakdown?${params}`)
+      .then((res) => res.json())
+      .then((data) => setBreakdown(data))
+      .catch(console.error)
+      .finally(() => setLoadingBreakdown(false));
+  }, [speciesKey, regionMode, countryCode, maxUncertainty, dataSource]);
+
   // Sort candidates by probability (low first so high prob renders on top)
   const sortedCandidates = [...candidates].sort((a, b) => a.properties.probability - b.properties.probability);
 
+  const handleInatNavigate = (delta: number) => {
+    if (!breakdown?.recentInatObservations) return;
+    const newIndex = Math.max(0, Math.min(breakdown.recentInatObservations.length - 1, inatIndex + delta));
+    setInatIndex(newIndex);
+  };
+
   return (
-    <tr>
-      <td colSpan={colSpan} className="p-0">
-        <div className="bg-zinc-50 dark:bg-zinc-800/50 border-t border-zinc-200 dark:border-zinc-700">
-          <div className="p-2">
-            {/* Controls for candidates */}
+    <tr className="overflow-visible">
+      <td colSpan={colSpan} className="p-0 overflow-visible">
+        <div className="bg-zinc-50 dark:bg-zinc-800/50 border-t border-zinc-200 dark:border-zinc-700 overflow-visible">
+          <div className="p-2 overflow-visible">
+            {/* Main layout: 1/3 left (breakdown + photos), 2/3 right (map) */}
+            <div className="flex flex-col lg:flex-row gap-3 overflow-visible">
+              {/* Left column: Breakdown + iNat photos (1/3 width) */}
+              <div className="lg:w-1/3 flex flex-col gap-3 overflow-visible relative z-10">
+                {/* Observation type breakdown */}
+                <div className="p-3 bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-700">
+                  <div className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Observation Types</div>
+                  {loadingBreakdown ? (
+                    <div className="text-zinc-400 text-sm animate-pulse">Loading...</div>
+                  ) : breakdown ? (
+                    <div className="space-y-1 text-sm">
+                      <div className={`flex justify-between ${activeBasisOfRecord === "HUMAN_OBSERVATION" ? "text-blue-500 font-medium" : "text-zinc-600 dark:text-zinc-400"}`}>
+                        <span>{activeBasisOfRecord === "HUMAN_OBSERVATION" ? "→ " : ""}Human observations</span>
+                        <span className="tabular-nums">{breakdown.humanObservation.toLocaleString()}</span>
+                      </div>
+                      {breakdown.iNaturalist > 0 && (
+                        <div className="flex justify-between text-zinc-500 dark:text-zinc-400 pl-3 text-xs">
+                          <span>iNaturalist</span>
+                          <span className="tabular-nums">{breakdown.iNaturalist.toLocaleString()}</span>
+                        </div>
+                      )}
+                      <div className={`flex justify-between ${activeBasisOfRecord === "PRESERVED_SPECIMEN" ? "text-blue-500 font-medium" : "text-zinc-600 dark:text-zinc-400"}`}>
+                        <span>{activeBasisOfRecord === "PRESERVED_SPECIMEN" ? "→ " : ""}Preserved specimens</span>
+                        <span className="tabular-nums">{breakdown.preservedSpecimen.toLocaleString()}</span>
+                      </div>
+                      <div className={`flex justify-between ${activeBasisOfRecord === "MACHINE_OBSERVATION" ? "text-blue-500 font-medium" : "text-zinc-600 dark:text-zinc-400"}`}>
+                        <span>{activeBasisOfRecord === "MACHINE_OBSERVATION" ? "→ " : ""}Machine observations</span>
+                        <span className="tabular-nums">{breakdown.machineObservation.toLocaleString()}</span>
+                      </div>
+                      {breakdown.other > 0 && (
+                        <div className={`flex justify-between ${activeBasisOfRecord === "OTHER" || activeBasisOfRecord === "MATERIAL_SAMPLE" ? "text-blue-500 font-medium" : "text-zinc-600 dark:text-zinc-400"}`}>
+                          <span>{activeBasisOfRecord === "OTHER" || activeBasisOfRecord === "MATERIAL_SAMPLE" ? "→ " : ""}Other</span>
+                          <span className="tabular-nums">{breakdown.other.toLocaleString()}</span>
+                        </div>
+                      )}
+                      <div className="border-t border-zinc-200 dark:border-zinc-700 pt-1 mt-1 flex justify-between font-medium text-zinc-700 dark:text-zinc-300">
+                        <span>Total</span>
+                        <span className="tabular-nums">{breakdown.total?.toLocaleString() || (breakdown.humanObservation + breakdown.preservedSpecimen + breakdown.machineObservation + breakdown.other).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* iNaturalist photos grid */}
+                {breakdown?.recentInatObservations && breakdown.recentInatObservations.length > 0 && (
+                  <div className="p-3 bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-700 flex-1 overflow-visible">
+                    <div className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2 flex items-center gap-2">
+                      <span className="text-zinc-700 dark:text-zinc-300">iNaturalist</span>
+                      <span className="text-zinc-400 text-xs">({breakdown.inatTotalCount?.toLocaleString() || breakdown.iNaturalist.toLocaleString()} total)</span>
+                    </div>
+                    <div className="grid grid-cols-5 gap-1 overflow-visible">
+                      {breakdown.recentInatObservations.map((obs, idx) => (
+                        <InatPhotoWithPreview key={idx} obs={obs} idx={idx} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Right column: Map + controls (2/3 width) */}
+              <div className="lg:w-2/3 flex flex-col gap-2">
+                {/* Controls for candidates */}
             {hasCandidates && (
               <div className="flex flex-wrap items-center gap-4 mb-2 p-2 bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-700">
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -498,7 +496,7 @@ function ExpandedRow({ speciesKey, speciesName, regionMode, countryCode, mounted
             )}
 
             {/* Map */}
-            <div className="h-[300px] md:h-[400px] rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-700 relative">
+            <div className="h-[300px] md:h-[400px] rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-700 relative isolate z-0">
               {loadingOccurrences ? (
                 <div className="flex items-center justify-center h-full bg-zinc-100 dark:bg-zinc-800">
                   <div className="text-zinc-400">Loading occurrences...</div>
@@ -596,6 +594,8 @@ function ExpandedRow({ speciesKey, speciesName, regionMode, countryCode, mounted
                 </div>
               )}
             </div>
+              </div>
+            </div>
           </div>
         </div>
       </td>
@@ -624,6 +624,13 @@ export default function Home() {
   const [filterPreset, setFilterPreset] = useState<FilterPreset>("all");
   const [redlistFilter, setRedlistFilter] = useState<RedlistFilter>("all");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
+  // New GBIF filters
+  const [basisOfRecordFilter, setBasisOfRecordFilter] = useState<BasisOfRecordFilter>("all");
+  const [uncertaintyFilter, setUncertaintyFilter] = useState<UncertaintyFilter>("all");
+  const [dataSourceFilter, setDataSourceFilter] = useState<DataSourceFilter>("all");
+  const [filterStats, setFilterStats] = useState<FilterStats | null>(null);
+  const [loadingFilterStats, setLoadingFilterStats] = useState(false);
 
   // Species details cache (for images in table)
   const [speciesCache, setSpeciesCache] = useState<Record<number, SpeciesDetails>>({});
@@ -673,11 +680,59 @@ export default function Home() {
     setPagination({ page: 1, limit: 10, total: 0, totalPages: 0 });
     setFilterPreset("all");
     setRedlistFilter("all");
+    setBasisOfRecordFilter("all");
+    setUncertaintyFilter("all");
+    setDataSourceFilter("all");
+    setFilterStats(null);
     setSearchQuery("");
     setSearchResults(null);
     setSelectedSpeciesKey(null);
     setSpeciesCache({});
   }, [selectedTaxon]);
+
+  // Fetch filter stats (works for both global and country mode, with dynamic updates)
+  useEffect(() => {
+    if (!selectedTaxon) {
+      setFilterStats(null);
+      return;
+    }
+
+    const fetchFilterStats = async () => {
+      setLoadingFilterStats(true);
+      try {
+        // Build query params
+        const params = new URLSearchParams({ taxon: selectedTaxon });
+
+        // Add country if in country mode
+        if (regionMode === "country" && selectedCountry) {
+          params.set("country", selectedCountry);
+        }
+
+        // Add current filter selections for dynamic/linked chart counts
+        if (basisOfRecordFilter !== "all") {
+          params.set("basisOfRecord", basisOfRecordFilter);
+        }
+        if (uncertaintyFilter !== "all") {
+          params.set("maxUncertainty", uncertaintyFilter);
+        }
+        if (dataSourceFilter !== "all") {
+          params.set("dataSource", dataSourceFilter);
+        }
+
+        const response = await fetch(`/api/filters?${params}`);
+        if (response.ok) {
+          const data = await response.json();
+          setFilterStats(data);
+        }
+      } catch (error) {
+        console.error("Error fetching filter stats:", error);
+      } finally {
+        setLoadingFilterStats(false);
+      }
+    };
+
+    fetchFilterStats();
+  }, [regionMode, selectedCountry, selectedTaxon, basisOfRecordFilter, uncertaintyFilter, dataSourceFilter]);
 
   // Fetch data based on region mode and taxon
   const fetchData = useCallback(async () => {
@@ -713,6 +768,17 @@ export default function Home() {
       params.set("redlist", redlistFilter);
     }
 
+    // Add GBIF filters (works for both global and country mode)
+    if (basisOfRecordFilter !== "all") {
+      params.set("basisOfRecord", basisOfRecordFilter);
+    }
+    if (uncertaintyFilter !== "all") {
+      params.set("maxUncertainty", uncertaintyFilter);
+    }
+    if (dataSourceFilter !== "all") {
+      params.set("dataSource", dataSourceFilter);
+    }
+
     try {
       const response = await fetch(`${apiEndpoint}?${params}`);
       const result: ApiResponse = await response.json();
@@ -725,7 +791,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [pagination.page, pagination.limit, filterPreset, redlistFilter, sortOrder, apiEndpoint, regionMode, selectedCountry, selectedTaxon]);
+  }, [pagination.page, pagination.limit, filterPreset, redlistFilter, sortOrder, apiEndpoint, regionMode, selectedCountry, selectedTaxon, basisOfRecordFilter, uncertaintyFilter, dataSourceFilter]);
 
   useEffect(() => {
     fetchData();
@@ -789,6 +855,21 @@ export default function Home() {
     setPagination((prev) => ({ ...prev, page: 1 }));
   };
 
+  const handleBasisOfRecordChange = (filter: BasisOfRecordFilter) => {
+    setBasisOfRecordFilter(filter);
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  };
+
+  const handleUncertaintyChange = (filter: UncertaintyFilter) => {
+    setUncertaintyFilter(filter);
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  };
+
+  const handleDataSourceChange = (filter: DataSourceFilter) => {
+    setDataSourceFilter(filter);
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  };
+
   const handleCountrySelect = (countryCode: string, countryName: string) => {
     // If clicking the same country, revert to global
     if (selectedCountry === countryCode) {
@@ -800,10 +881,15 @@ export default function Home() {
       setSelectedCountryName(countryName);
       setRegionMode("country");
     }
+    // Reset all filters when changing country
     setSearchResults(null);
     setSearchQuery("");
     setPagination((prev) => ({ ...prev, page: 1 }));
     setSelectedSpeciesKey(null);
+    setBasisOfRecordFilter("all");
+    setUncertaintyFilter("all");
+    setDataSourceFilter("all");
+    setFilterStats(null);
   };
 
   const handleClearCountry = () => {
@@ -811,6 +897,10 @@ export default function Home() {
     setSelectedCountryName(null);
     setRegionMode("global");
     setPagination((prev) => ({ ...prev, page: 1 }));
+    setBasisOfRecordFilter("all");
+    setUncertaintyFilter("all");
+    setDataSourceFilter("all");
+    setFilterStats(null);
   };
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -993,6 +1083,206 @@ export default function Home() {
           )}
         </div>
 
+        {/* Additional filter charts - show in both global and country mode */}
+        {filterStats && (
+          <div className="space-y-2 mb-4">
+            {/* Active filters summary */}
+            {(basisOfRecordFilter !== "all" || uncertaintyFilter !== "all" || dataSourceFilter !== "all") && (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-zinc-500 dark:text-zinc-400">Active filters:</span>
+                {basisOfRecordFilter !== "all" && (
+                  <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs">
+                    {filterStats.basisOfRecord.find(b => b.key === basisOfRecordFilter)?.label}
+                  </span>
+                )}
+                {uncertaintyFilter !== "all" && (
+                  <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-xs">
+                    {filterStats.uncertainty.find(u => u.key === uncertaintyFilter)?.label}
+                  </span>
+                )}
+                {dataSourceFilter !== "all" && (
+                  <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-xs">
+                    {filterStats.dataSources.find(d => d.key === dataSourceFilter)?.label}
+                  </span>
+                )}
+                <button
+                  onClick={() => {
+                    setBasisOfRecordFilter("all");
+                    setUncertaintyFilter("all");
+                    setDataSourceFilter("all");
+                  }}
+                  className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 underline"
+                >
+                  Clear all
+                </button>
+                {regionMode === "country" && (
+                  <span className="text-zinc-400 dark:text-zinc-500 ml-auto">
+                    {formatNumber(filterStats.total)} occurrences
+                  </span>
+                )}
+              </div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Filter by Observation Type */}
+            <div className="bg-white dark:bg-zinc-900 rounded-xl p-4 shadow-sm border border-zinc-200 dark:border-zinc-800">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                  Observation Type
+                </h2>
+                {basisOfRecordFilter !== "all" && (
+                  <button
+                    onClick={() => handleBasisOfRecordChange("all")}
+                    className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                {filterStats.basisOfRecord.map(({ key, label, count }) => {
+                  const isActive = basisOfRecordFilter === key;
+                  const maxCount = Math.max(...filterStats.basisOfRecord.map(b => b.count));
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => handleBasisOfRecordChange(isActive ? "all" : key as BasisOfRecordFilter)}
+                      className={`w-full flex items-center gap-2 p-1 rounded-lg transition-colors ${
+                        isActive
+                          ? "bg-blue-100 dark:bg-blue-900/30"
+                          : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                      }`}
+                    >
+                      <div className="w-24 text-xs text-zinc-500 shrink-0 text-left truncate" title={label}>{label}</div>
+                      <div className="flex-1 bg-zinc-100 dark:bg-zinc-800 rounded-full h-2 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            isActive ? "bg-blue-600" : "bg-blue-500"
+                          }`}
+                          style={{ width: `${(count / maxCount) * 100}%` }}
+                        />
+                      </div>
+                      <div className="w-16 text-[11px] text-right text-zinc-500 shrink-0 tabular-nums">
+                        {formatNumber(count)}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Filter by Coordinate Uncertainty */}
+            <div className="bg-white dark:bg-zinc-900 rounded-xl p-4 shadow-sm border border-zinc-200 dark:border-zinc-800">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                  Coord. Uncertainty
+                </h2>
+                {uncertaintyFilter !== "all" && (
+                  <button
+                    onClick={() => handleUncertaintyChange("all")}
+                    className="text-xs text-green-600 hover:text-green-700 dark:text-green-400"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                {filterStats.uncertainty.map(({ key, label, count }) => {
+                  const isActive = uncertaintyFilter === key;
+                  const maxCount = Math.max(...filterStats.uncertainty.map(u => u.count));
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => handleUncertaintyChange(isActive ? "all" : key as UncertaintyFilter)}
+                      className={`w-full flex items-center gap-2 p-1 rounded-lg transition-colors ${
+                        isActive
+                          ? "bg-green-100 dark:bg-green-900/30"
+                          : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                      }`}
+                    >
+                      <div className="w-14 text-xs text-zinc-500 shrink-0 text-left">{label}</div>
+                      <div className="flex-1 bg-zinc-100 dark:bg-zinc-800 rounded-full h-2 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            isActive ? "bg-green-600" : "bg-green-500"
+                          }`}
+                          style={{ width: `${(count / maxCount) * 100}%` }}
+                        />
+                      </div>
+                      <div className="w-16 text-[11px] text-right text-zinc-500 shrink-0 tabular-nums">
+                        {formatNumber(count)}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Filter by Data Source */}
+            <div className="bg-white dark:bg-zinc-900 rounded-xl p-4 shadow-sm border border-zinc-200 dark:border-zinc-800">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                  Data Source
+                </h2>
+                {dataSourceFilter !== "all" && (
+                  <button
+                    onClick={() => handleDataSourceChange("all")}
+                    className="text-xs text-purple-600 hover:text-purple-700 dark:text-purple-400"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                {filterStats.dataSources.map(({ key, label, count }) => {
+                  const isActive = dataSourceFilter === key;
+                  const maxCount = Math.max(...filterStats.dataSources.map(d => d.count));
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => handleDataSourceChange(isActive ? "all" : key as DataSourceFilter)}
+                      className={`w-full flex items-center gap-2 p-1 rounded-lg transition-colors ${
+                        isActive
+                          ? "bg-purple-100 dark:bg-purple-900/30"
+                          : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                      }`}
+                    >
+                      <div className="w-20 text-xs text-zinc-500 shrink-0 text-left">{label}</div>
+                      <div className="flex-1 bg-zinc-100 dark:bg-zinc-800 rounded-full h-2 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            isActive ? "bg-purple-600" : "bg-purple-500"
+                          }`}
+                          style={{ width: `${(count / maxCount) * 100}%` }}
+                        />
+                      </div>
+                      <div className="w-16 text-[11px] text-right text-zinc-500 shrink-0 tabular-nums">
+                        {formatNumber(count)}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            </div>
+          </div>
+        )}
+
+        {/* Loading indicator for filter stats */}
+        {loadingFilterStats && !filterStats && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-white dark:bg-zinc-900 rounded-xl p-4 shadow-sm border border-zinc-200 dark:border-zinc-800 animate-pulse">
+                <div className="h-4 bg-zinc-200 dark:bg-zinc-700 rounded w-24 mb-3" />
+                <div className="space-y-2">
+                  {[1, 2, 3, 4].map((j) => (
+                    <div key={j} className="h-6 bg-zinc-100 dark:bg-zinc-800 rounded" />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Search and Sort row */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
           <form onSubmit={handleSearch} className="flex gap-2 flex-1">
@@ -1154,27 +1444,8 @@ export default function Home() {
                           {species.vernacularName && <span className="text-zinc-500 ml-1">({species.vernacularName})</span>}
                         </div>
                       </td>
-                      <td className="px-2 sm:px-4 py-2 text-sm text-right font-medium text-zinc-900 dark:text-zinc-100">
-                        {species.occurrenceCount ? (
-                          <span className="relative group/count">
-                            <a
-                              href={`https://www.gbif.org/occurrence/search?taxon_key=${species.key}${regionMode === "country" && selectedCountry ? `&country=${selectedCountry}` : ""}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline decoration-dotted hover:decoration-solid"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {formatNumber(species.occurrenceCount)}
-                            </a>
-                            <div className="absolute right-0 bottom-full z-10 hidden group-hover/count:block pb-2 pr-2 -mr-2">
-                              <BreakdownTooltip
-                                speciesKey={species.key}
-                                countryCode={regionMode === "country" ? selectedCountry : null}
-                                totalCount={species.occurrenceCount}
-                              />
-                            </div>
-                          </span>
-                        ) : "—"}
+                      <td className="px-2 sm:px-4 py-2 text-sm text-right font-medium text-zinc-900 dark:text-zinc-100 tabular-nums">
+                        {species.occurrenceCount ? formatNumber(species.occurrenceCount) : "—"}
                       </td>
                       <td className="hidden sm:table-cell px-2 sm:px-4 py-2 text-center">
                         <a
@@ -1199,6 +1470,9 @@ export default function Home() {
                         mounted={mounted}
                         colSpan={5}
                         hasCandidates={!!getCandidateKey(species.canonicalName) && availableCandidates.includes(getCandidateKey(species.canonicalName) ?? "")}
+                        maxUncertainty={uncertaintyFilter !== "all" ? uncertaintyFilter : null}
+                        dataSource={dataSourceFilter !== "all" ? dataSourceFilter : null}
+                        activeBasisOfRecord={basisOfRecordFilter !== "all" ? basisOfRecordFilter : null}
                       />
                     )}
                   </React.Fragment>
@@ -1275,25 +1549,8 @@ export default function Home() {
                             )}
                           </div>
                         </td>
-                        <td className="px-2 sm:px-4 py-2 text-sm text-right font-medium text-zinc-900 dark:text-zinc-100">
-                          <span className="relative group/count">
-                            <a
-                              href={`https://www.gbif.org/occurrence/search?taxon_key=${record.species_key}${regionMode === "country" && selectedCountry ? `&country=${selectedCountry}` : ""}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline decoration-dotted hover:decoration-solid"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {formatNumber(record.occurrence_count)}
-                            </a>
-                            <div className="absolute right-0 bottom-full z-10 hidden group-hover/count:block pb-2 pr-2 -mr-2">
-                              <BreakdownTooltip
-                                speciesKey={record.species_key}
-                                countryCode={regionMode === "country" ? selectedCountry : null}
-                                totalCount={record.occurrence_count}
-                              />
-                            </div>
-                          </span>
+                        <td className="px-2 sm:px-4 py-2 text-sm text-right font-medium text-zinc-900 dark:text-zinc-100 tabular-nums">
+                          {formatNumber(record.occurrence_count)}
                         </td>
                         <td className="hidden sm:table-cell px-2 sm:px-4 py-2 text-center">
                           {record.redlist_category ? (
@@ -1341,6 +1598,9 @@ export default function Home() {
                           mounted={mounted}
                           colSpan={7}
                           hasCandidates={hasCandidates}
+                          maxUncertainty={uncertaintyFilter !== "all" ? uncertaintyFilter : null}
+                          dataSource={dataSourceFilter !== "all" ? dataSourceFilter : null}
+                          activeBasisOfRecord={basisOfRecordFilter !== "all" ? basisOfRecordFilter : null}
                         />
                       )}
                     </React.Fragment>

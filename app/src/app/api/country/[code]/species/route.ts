@@ -93,6 +93,18 @@ export async function GET(
   const sort = searchParams.get("sort") || "desc";
   const redlistFilter = searchParams.get("redlist"); // "all", "NE", or specific category (CR, EN, VU, etc.)
 
+  // New filters for observation type, uncertainty, and data source
+  const basisOfRecord = searchParams.get("basisOfRecord"); // HUMAN_OBSERVATION, PRESERVED_SPECIMEN, etc.
+  const maxUncertainty = searchParams.get("maxUncertainty"); // max coordinate uncertainty in meters
+  const dataSource = searchParams.get("dataSource"); // iNaturalist, iRecord, BSBI, or null for all
+
+  // Data source keys
+  const DATA_SOURCES: Record<string, { type: "dataset" | "publishingOrg"; key: string }> = {
+    iNaturalist: { type: "dataset", key: "50c9509d-22c7-4a22-a47d-8c48425ef4a7" },
+    iRecord: { type: "publishingOrg", key: "32f1b389-5871-4da3-832f-9a89132520c5" }, // BRC
+    BSBI: { type: "publishingOrg", key: "aa569acf-991d-4467-b327-8442f30ddbd2" },
+  };
+
   const taxon = getTaxonConfig(taxonId);
 
   // Load lookups early so we can filter by Red List status
@@ -104,11 +116,38 @@ export async function GET(
     const gbifParams = new URLSearchParams({
       country: countryCode,
       facet: "speciesKey",
-      facetLimit: "100000",
+      facetLimit: "500000",
       limit: "0", // We only want facets, not actual occurrences
       hasCoordinate: "true",
       hasGeospatialIssue: "false",
     });
+
+    // Add basisOfRecord filter if specified
+    if (basisOfRecord) {
+      if (basisOfRecord === "OTHER") {
+        // "OTHER" includes: OBSERVATION, MATERIAL_CITATION, OCCURRENCE, LIVING_SPECIMEN, FOSSIL_SPECIMEN
+        ["OBSERVATION", "MATERIAL_CITATION", "OCCURRENCE", "LIVING_SPECIMEN", "FOSSIL_SPECIMEN"].forEach(type => {
+          gbifParams.append("basisOfRecord", type);
+        });
+      } else {
+        gbifParams.set("basisOfRecord", basisOfRecord);
+      }
+    }
+
+    // Add coordinate uncertainty filter if specified
+    if (maxUncertainty) {
+      gbifParams.set("coordinateUncertaintyInMeters", `*,${maxUncertainty}`);
+    }
+
+    // Add data source filter if specified
+    if (dataSource && DATA_SOURCES[dataSource]) {
+      const source = DATA_SOURCES[dataSource];
+      if (source.type === "dataset") {
+        gbifParams.set("datasetKey", source.key);
+      } else {
+        gbifParams.set("publishingOrg", source.key);
+      }
+    }
 
     // Add taxon filter - use classKey(s) if available, otherwise kingdomKey
     if (taxon.gbifClassKey) {
@@ -158,8 +197,9 @@ export async function GET(
     }
 
     // Convert facets to species records with counts and Red List status
-    const allSpecies: { speciesKey: number; count: number; scientificName: string | undefined; redlistCategory: string | null }[] = speciesFacets.counts.map(
-      (facet: { name: string; count: number }) => {
+    // Filter to only include valid species from our CSV (excludes subspecies, synonyms, etc.)
+    const allSpecies: { speciesKey: number; count: number; scientificName: string | undefined; redlistCategory: string | null }[] = speciesFacets.counts
+      .map((facet: { name: string; count: number }) => {
         const speciesKey = parseInt(facet.name);
         // Look up name from our cached GBIF data
         const scientificName = gbifNameLookup.get(speciesKey);
@@ -173,8 +213,8 @@ export async function GET(
           scientificName,
           redlistCategory,
         };
-      }
-    );
+      })
+      .filter((sp: { speciesKey: number }) => gbifNameLookup.has(sp.speciesKey));
 
     // Calculate stats from all species (before filtering)
     const totalOccurrences = allSpecies.reduce((sum, s) => sum + s.count, 0);
