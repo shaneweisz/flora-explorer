@@ -14,6 +14,7 @@ import {
   LabelList,
 } from "recharts";
 import TaxaSummary from "./TaxaSummary";
+import NewLiteratureSinceAssessment from "../LiteratureSearch";
 import { CATEGORY_COLORS } from "@/config/taxa";
 
 // Dynamically import OccurrenceMapRow to avoid SSR issues with Leaflet
@@ -121,6 +122,8 @@ interface SpeciesDetails {
   recentInatObservations: InatObservation[];
   inatTotalCount: number;
   inatDefaultImage: InatDefaultImage | null;
+  // OpenAlex literature count
+  openAlexPaperCount: number | null;
 }
 
 interface SpeciesResponse {
@@ -538,12 +541,26 @@ export default function RedListView({ onTaxonChange }: RedListViewProps) {
           const assessmentDate = s.assessment_date ? new Date(s.assessment_date) : null;
           const assessmentYear = assessmentDate ? assessmentDate.getFullYear().toString() : "";
           const assessmentMonth = assessmentDate ? (assessmentDate.getMonth() + 1).toString() : ""; // 1-12
-          const res = await fetch(
-            `/api/redlist/species/${s.sis_taxon_id}?assessmentId=${s.assessment_id}&name=${encodeURIComponent(s.scientific_name)}&assessmentYear=${assessmentYear}&assessmentMonth=${assessmentMonth}`
-          );
-          if (res.ok) {
-            const data = await res.json();
-            return { id: s.sis_taxon_id, data };
+
+          // Fetch IUCN details and OpenAlex paper count in parallel
+          const [iucnRes, litRes] = await Promise.all([
+            fetch(
+              `/api/redlist/species/${s.sis_taxon_id}?assessmentId=${s.assessment_id}&name=${encodeURIComponent(s.scientific_name)}&assessmentYear=${assessmentYear}&assessmentMonth=${assessmentMonth}`
+            ),
+            assessmentYear ? fetch(
+              `/api/literature?scientificName=${encodeURIComponent(s.scientific_name)}&assessmentYear=${assessmentYear}&limit=1`
+            ) : Promise.resolve(null),
+          ]);
+
+          if (iucnRes.ok) {
+            const data = await iucnRes.json();
+            // Add paper count from literature API
+            let openAlexPaperCount: number | null = null;
+            if (litRes?.ok) {
+              const litData = await litRes.json();
+              openAlexPaperCount = litData.totalPapersSinceAssessment ?? null;
+            }
+            return { id: s.sis_taxon_id, data: { ...data, openAlexPaperCount } };
           }
         } catch {
           // Ignore errors for individual species
@@ -568,6 +585,7 @@ export default function RedListView({ onTaxonChange }: RedListViewProps) {
             recentInatObservations: result.data.recentInatObservations || [],
             inatTotalCount: result.data.inatTotalCount || 0,
             inatDefaultImage: result.data.inatDefaultImage || null,
+            openAlexPaperCount: result.data.openAlexPaperCount ?? null,
           };
         }
       });
@@ -936,6 +954,9 @@ export default function RedListView({ onTaxonChange }: RedListViewProps) {
                 <th className="px-4 py-3 text-right text-xs font-medium text-zinc-500 uppercase tracking-wider">
                   New GBIF Records
                 </th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                  New Papers
+                </th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-zinc-500 uppercase tracking-wider">
                   Red List
                 </th>
@@ -1263,6 +1284,22 @@ export default function RedListView({ onTaxonChange }: RedListViewProps) {
                         </HoverTooltip>
                       ) : "—"}
                     </td>
+                    <td className="px-4 py-3 text-right text-zinc-600 dark:text-zinc-400 text-sm tabular-nums">
+                      {details === undefined ? (
+                        <span className="text-zinc-400 animate-pulse">...</span>
+                      ) : details?.openAlexPaperCount != null && assessmentYear ? (
+                        <a
+                          href={`https://openalex.org/works?page=1&filter=default.search%3A%22${encodeURIComponent(s.scientific_name)}%22,publication_year%3A%3E${assessmentYear},type%3A%21dataset&sort=publication_date%3Adesc`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline decoration-dotted hover:decoration-solid"
+                          title={`OpenAlex: search="${s.scientific_name}" AND year>${assessmentYear} AND type!=dataset`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {details.openAlexPaperCount.toLocaleString()}
+                        </a>
+                      ) : "—"}
+                    </td>
                     <td className="px-4 py-3 text-center">
                       <a
                         href={s.url}
@@ -1278,20 +1315,34 @@ export default function RedListView({ onTaxonChange }: RedListViewProps) {
                       </a>
                     </td>
                   </tr>
-                  {selectedSpeciesKey === s.sis_taxon_id && gbifSpeciesKey && (
-                    <OccurrenceMapRow
-                      speciesKey={gbifSpeciesKey}
-                      speciesName={s.scientific_name.toLowerCase()}
-                      mounted={mounted}
-                      colSpan={10}
-                    />
+                  {selectedSpeciesKey === s.sis_taxon_id && (
+                    <>
+                      {gbifSpeciesKey && (
+                        <OccurrenceMapRow
+                          speciesKey={gbifSpeciesKey}
+                          speciesName={s.scientific_name.toLowerCase()}
+                          mounted={mounted}
+                          colSpan={11}
+                        />
+                      )}
+                      {assessmentYear && (
+                        <tr>
+                          <td colSpan={11} className="p-4 bg-zinc-50 dark:bg-zinc-800/30">
+                            <NewLiteratureSinceAssessment
+                              scientificName={s.scientific_name}
+                              assessmentYear={assessmentYear}
+                            />
+                          </td>
+                        </tr>
+                      )}
+                    </>
                   )}
                   </React.Fragment>
                 );
               })}
               {filteredSpecies.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-zinc-500">
+                  <td colSpan={11} className="px-4 py-8 text-center text-zinc-500">
                     No species found
                   </td>
                 </tr>
