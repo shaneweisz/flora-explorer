@@ -279,8 +279,8 @@ export default function TaxaSummary({ onSelectTaxon, selectedTaxon }: Props) {
                 }`}
               >
                 <div className="grid grid-cols-6 gap-4 items-center">
-                  {/* Taxon name with icon - indented */}
-                  <div className="flex items-center gap-2 pl-4">
+                  {/* Taxon name with icon */}
+                  <div className="flex items-center gap-2">
                     <TaxaIcon
                       taxonId={taxon.id}
                       size={22}
