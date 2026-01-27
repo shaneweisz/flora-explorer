@@ -25,6 +25,12 @@ const OccurrenceMapRow = dynamic(
   { ssr: false }
 );
 
+// Dynamically import WorldMap to avoid SSR issues
+const WorldMap = dynamic(
+  () => import("../WorldMap"),
+  { ssr: false }
+);
+
 interface CategoryStats {
   code: string;
   name: string;
@@ -606,8 +612,29 @@ export default function RedListView({ onTaxonChange }: RedListViewProps) {
     })
     .map(([code]) => code);
 
+  // Convert to WorldMap stats format
+  const countryStatsForMap = Object.fromEntries(
+    Object.entries(countryCounts).map(([code, count]) => [
+      code,
+      { occurrences: count, species: count }
+    ])
+  );
+
   // Helper to get country display name
   const getCountryName = (code: string) => ALPHA2_TO_NAME[code] || code;
+
+  // Map selection handlers
+  const handleCountrySelect = (countryCode: string) => {
+    if (selectedCountry === countryCode) {
+      setSelectedCountry(null);
+    } else {
+      setSelectedCountry(countryCode);
+    }
+  };
+
+  const handleClearCountry = () => {
+    setSelectedCountry(null);
+  };
 
   // Filter species based on category, year range, country, and search
   const filteredSpecies = species.filter((s) => {
@@ -860,10 +887,10 @@ export default function RedListView({ onTaxonChange }: RedListViewProps) {
           {/* Details content */}
           {!loading && !error && stats && assessments && taxonInfo && (
             <>
-              {/* Two charts side by side */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Years Since Assessment chart - horizontal bars */}
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 flex flex-col">
+              {/* Charts and map - all on same row */}
+      <div className="grid grid-cols-1 lg:grid-cols-7 gap-4">
+        {/* Years Since Assessment chart - 2 columns */}
+        <div className="lg:col-span-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 flex flex-col">
           <div className="flex items-center justify-between mb-1">
             <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
               Years Since Last Assessed <span className="font-normal text-zinc-400">(click to filter)</span>
@@ -935,8 +962,8 @@ export default function RedListView({ onTaxonChange }: RedListViewProps) {
           </div>
         </div>
 
-        {/* Category distribution - horizontal bars */}
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 flex flex-col">
+        {/* Category distribution - 2 columns */}
+        <div className="lg:col-span-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 flex flex-col">
           <div className="flex items-center justify-between mb-1">
             <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
               Distribution by Category <span className="font-normal text-zinc-400">(click to filter)</span>
@@ -1000,6 +1027,17 @@ export default function RedListView({ onTaxonChange }: RedListViewProps) {
               </BarChart>
             </ResponsiveContainer>
           </div>
+        </div>
+
+        {/* Country Map - 3 columns */}
+        <div className="lg:col-span-3">
+          <WorldMap
+            selectedCountry={selectedCountry}
+            onCountrySelect={handleCountrySelect}
+            onClearSelection={handleClearCountry}
+            precomputedStats={countryStatsForMap}
+            statLabel="Species"
+          />
         </div>
       </div>
 
@@ -1152,10 +1190,10 @@ export default function RedListView({ onTaxonChange }: RedListViewProps) {
                   New GBIF Records
                 </th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-zinc-500 uppercase tracking-wider">
-                  Papers When Assessed
+                  OpenAlex Papers When Assessed
                 </th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-zinc-500 uppercase tracking-wider">
-                  New Papers
+                  New OpenAlex Papers
                 </th>
               </tr>
             </thead>

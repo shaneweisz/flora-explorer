@@ -87,7 +87,7 @@ interface CountryStats {
   };
 }
 
-// Color scale for heatmap: cream -> yellow -> orange -> dark red
+// Color scale for heatmap: pale green -> medium green -> dark green
 function getHeatmapColor(value: number, maxValue: number): string {
   if (value === 0 || maxValue === 0) return "#f5f5f4"; // stone-100
 
@@ -97,27 +97,27 @@ function getHeatmapColor(value: number, maxValue: number): string {
   const logMax = Math.log10(maxValue + 1);
   const ratio = Math.pow(logValue / logMax, 2.0);
 
-  // Color scale: #fef3c7 (cream) -> #fde047 (yellow) -> #f97316 (orange) -> #991b1b (dark red)
+  // Color scale: #dcfce7 (green-100) -> #86efac (green-300) -> #22c55e (green-500) -> #166534 (green-800)
   if (ratio < 0.33) {
-    // Cream to yellow
+    // Pale green to light green
     const t = ratio * 3;
-    const r = Math.round(254 + (253 - 254) * t);
-    const g = Math.round(243 + (224 - 243) * t);
-    const b = Math.round(199 + (71 - 199) * t);
+    const r = Math.round(220 + (134 - 220) * t);
+    const g = Math.round(252 + (239 - 252) * t);
+    const b = Math.round(231 + (172 - 231) * t);
     return `rgb(${r}, ${g}, ${b})`;
   } else if (ratio < 0.66) {
-    // Yellow to orange
+    // Light green to medium green
     const t = (ratio - 0.33) * 3;
-    const r = Math.round(253 + (249 - 253) * t);
-    const g = Math.round(224 + (115 - 224) * t);
-    const b = Math.round(71 + (22 - 71) * t);
+    const r = Math.round(134 + (34 - 134) * t);
+    const g = Math.round(239 + (197 - 239) * t);
+    const b = Math.round(172 + (94 - 172) * t);
     return `rgb(${r}, ${g}, ${b})`;
   } else {
-    // Orange to dark red
+    // Medium green to dark green
     const t = (ratio - 0.66) * 3;
-    const r = Math.round(249 + (153 - 249) * t);
-    const g = Math.round(115 + (27 - 115) * t);
-    const b = Math.round(22 + (27 - 22) * t);
+    const r = Math.round(34 + (22 - 34) * t);
+    const g = Math.round(197 + (101 - 197) * t);
+    const b = Math.round(94 + (52 - 94) * t);
     return `rgb(${r}, ${g}, ${b})`;
   }
 }
@@ -133,16 +133,26 @@ interface WorldMapProps {
   onCountrySelect: (countryCode: string, countryName: string) => void;
   onClearSelection: () => void;
   selectedTaxon?: string | null;
+  // Optional pre-computed stats (for Red List - avoids API call)
+  precomputedStats?: CountryStats;
+  // Label for the stat shown in tooltip (default: "Occurrences")
+  statLabel?: string;
 }
 
-function WorldMap({ selectedCountry, onCountrySelect, onClearSelection, selectedTaxon }: WorldMapProps) {
+function WorldMap({ selectedCountry, onCountrySelect, onClearSelection, selectedTaxon, precomputedStats, statLabel = "Occurrences" }: WorldMapProps) {
   const [hoveredCountry, setHoveredCountry] = useState<string | null>(null);
   const [hoveredCountryCode, setHoveredCountryCode] = useState<string | null>(null);
   const [countryStats, setCountryStats] = useState<CountryStats>({});
   const [loading, setLoading] = useState(true);
 
-  // Fetch country stats when taxon changes
+  // Use precomputed stats if provided, otherwise fetch from API
   useEffect(() => {
+    if (precomputedStats) {
+      setCountryStats(precomputedStats);
+      setLoading(false);
+      return;
+    }
+
     if (!selectedTaxon) {
       setCountryStats({});
       setLoading(false);
@@ -159,7 +169,7 @@ function WorldMap({ selectedCountry, onCountrySelect, onClearSelection, selected
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [selectedTaxon]);
+  }, [selectedTaxon, precomputedStats]);
 
   // Calculate max value for heatmap scaling
   const maxOccurrences = Object.values(countryStats).reduce(
@@ -200,7 +210,7 @@ function WorldMap({ selectedCountry, onCountrySelect, onClearSelection, selected
             <div
               className="w-12 h-1.5 rounded"
               style={{
-                background: "linear-gradient(to right, #fef3c7, #fde047, #f97316, #991b1b)"
+                background: "linear-gradient(to right, #dcfce7, #86efac, #22c55e, #166534)"
               }}
             />
             <span className="text-zinc-400">High</span>
@@ -223,7 +233,7 @@ function WorldMap({ selectedCountry, onCountrySelect, onClearSelection, selected
           {hoveredStats ? (
             <div className="mt-1 space-y-0.5">
               <div className="flex justify-between gap-4 text-xs">
-                <span className="text-zinc-500">Occurrences</span>
+                <span className="text-zinc-500">{statLabel}</span>
                 <span className="font-medium text-zinc-700 dark:text-zinc-300 tabular-nums">{formatNumber(hoveredStats.occurrences)}</span>
               </div>
               {hoveredStats.species > 0 && (
